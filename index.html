@@ -14,6 +14,12 @@
             padding: 0;
             overflow: hidden;
         }
+        .header {
+            text-align: left;
+            padding: 20px;
+            font-family: 'Minecraftia', sans-serif;
+            font-size: 24px;
+        }
         .floating-dots {
             position: fixed;
             width: 100%;
@@ -31,15 +37,49 @@
             opacity: 0.7;
             animation: float 10s infinite linear;
         }
+        .dot.yellow {
+            background-color: yellow;
+        }
         @keyframes float {
             0% { transform: translateY(0); }
             100% { transform: translateY(-100vh); }
         }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #222;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+            width: 80%;
+            max-width: 400px;
+            text-align: left;
+        }
+        .modal a {
+            color: yellow;
+            cursor: pointer;
+        }
+        .close {
+            float: right;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
-    <h1 style="font-family: 'Minecraftia', sans-serif;">Knoxera</h1>
-    <p>All products are not real. <a href="#" style="color: yellow;">More details</a></p>
+    <div class="header">Knoxera</div>
+    <p>All products are not real. This is a voluntary donation. <a onclick="openModal()" style="color: yellow; cursor: pointer;">More details</a></p>
+    
+    <div class="modal" id="termsModal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2>Terms & Conditions</h2>
+        <p>1. All purchases are voluntary donations.</p>
+        <p>2. The listed products have no relation to real subscriptions or services.</p>
+        <p>3. There are no refunds after purchase.</p>
+        <p>4. By purchasing, you agree to these terms.</p>
+    </div>
     
     <div class="floating-dots" id="dot-container"></div>
     
@@ -49,12 +89,21 @@
             for (let i = 0; i < 50; i++) {
                 let dot = document.createElement("div");
                 dot.classList.add("dot");
+                if (Math.random() > 0.5) {
+                    dot.classList.add("yellow");
+                }
                 dot.style.left = Math.random() * 100 + "vw";
                 dot.style.top = Math.random() * 100 + "vh";
                 dot.style.animationDuration = (5 + Math.random() * 5) + "s";
                 dot.style.opacity = Math.random();
                 container.appendChild(dot);
             }
+        }
+        function openModal() {
+            document.getElementById("termsModal").style.display = "block";
+        }
+        function closeModal() {
+            document.getElementById("termsModal").style.display = "none";
         }
         createDots();
     </script>
