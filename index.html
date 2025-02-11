@@ -1,111 +1,144 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knoxera</title>
-    <style>
-        body {
-            background-color: black;
-            color: white;
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-        .header {
-            text-align: left;
-            padding: 20px;
-            font-family: 'Minecraftia', sans-serif;
-            font-size: 24px;
-        }
-        .floating-dots {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-        }
-        .dot {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background-color: white;
-            border-radius: 50%;
-            opacity: 0.7;
-            animation: float 10s infinite linear;
-        }
-        .dot.yellow {
-            background-color: yellow;
-        }
-        @keyframes float {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-100vh); }
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #222;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-            width: 80%;
-            max-width: 400px;
-            text-align: left;
-        }
-        .modal a {
-            color: yellow;
-            cursor: pointer;
-        }
-        .close {
-            float: right;
-            cursor: pointer;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knoxera</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Подключение PayPal SDK -->
+  <script src="https://www.paypal.com/sdk/js?client-id=AeEHmZhqNcmPob8MMOTtyxsauOZkAnexQyGzDzUs5ZOInJdrVw2EsW85bhx9HfzLltVli-kWk5rToR4F&currency=USD"></script>
 </head>
 <body>
-    <div class="header">Knoxera</div>
-    <p>All products are not real. This is a voluntary donation. <a onclick="openModal()" style="color: yellow; cursor: pointer;">More details</a></p>
-    
-    <div class="modal" id="termsModal">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>Terms & Conditions</h2>
-        <p>1. All purchases are voluntary donations.</p>
-        <p>2. The listed products have no relation to real subscriptions or services.</p>
-        <p>3. There are no refunds after purchase.</p>
-        <p>4. By purchasing, you agree to these terms.</p>
+  <header>
+    <div class="logo">Knoxera</div>
+    <nav>
+      <ul>
+        <li><a href="#games">Games</a></li>
+        <li><a href="#social">Social Media</a></li>
+        <li><a href="#others">Others</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <section class="promo">
+    <h1>Discord Nitro ~50¢~ → 19¢</h1>
+  </section>
+
+  <section class="products">
+    <div class="product-card" onclick="toggleDescription(this)">
+      <h3>Discord Nitro</h3>
+      <p class="price">~50¢~ → 19¢</p>
+      <p class="description hidden">Описание: Вымышленная подписка на Discord Nitro. Это донат владельцу сайта.</p>
     </div>
-    
-    <div class="floating-dots" id="dot-container"></div>
-    
-    <script>
-        function createDots() {
-            const container = document.getElementById("dot-container");
-            for (let i = 0; i < 50; i++) {
-                let dot = document.createElement("div");
-                dot.classList.add("dot");
-                if (Math.random() > 0.5) {
-                    dot.classList.add("yellow");
-                }
-                dot.style.left = Math.random() * 100 + "vw";
-                dot.style.top = Math.random() * 100 + "vh";
-                dot.style.animationDuration = (5 + Math.random() * 5) + "s";
-                dot.style.opacity = Math.random();
-                container.appendChild(dot);
-            }
-        }
-        function openModal() {
-            document.getElementById("termsModal").style.display = "block";
-        }
-        function closeModal() {
-            document.getElementById("termsModal").style.display = "none";
-        }
-        createDots();
-    </script>
+    <!-- Другие карточки товаров -->
+  </section>
+
+  <!-- Контейнер для кнопки PayPal -->
+  <div id="paypal-button-container"></div>
+
+  <footer>
+    <p>All products are just a joke, donations to the owner only.</p>
+  </footer>
+
+  <!-- Скрипт для показа/скрытия описания товаров и интеграции с PayPal -->
+  <script src="script.js"></script>
 </body>
 </html>
+body {
+  background-color: #111;
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background-color: #333;
+}
+
+header .logo {
+  font-family: 'Minecraft', sans-serif;
+}
+
+header nav ul {
+  list-style: none;
+  display: flex;
+}
+
+header nav ul li {
+  margin: 0 10px;
+}
+
+header nav ul li a {
+  color: white;
+  text-decoration: none;
+}
+
+.promo {
+  text-align: center;
+  padding: 20px;
+}
+
+.products {
+  display: flex;
+  overflow-x: auto;
+}
+
+.product-card {
+  background: #222;
+  margin: 10px;
+  padding: 20px;
+  width: 200px;
+  text-align: center;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.product-card:hover {
+  transform: scale(1.05);
+}
+
+.product-card .description {
+  font-size: 14px;
+  margin-top: 10px;
+  color: #bbb;
+}
+
+.hidden {
+  display: none;
+}
+
+footer {
+  text-align: center;
+  padding: 10px;
+  background-color: #333;
+}
+// Функция для показа/скрытия описания товара
+function toggleDescription(card) {
+  const description = card.querySelector('.description');
+  description.classList.toggle('hidden');
+}
+
+// Настройка кнопки PayPal
+paypal.Buttons({
+  createOrder: function(data, actions) {
+    return actions.order.create({
+      purchase_units: [{
+        amount: {
+          value: '0.19'  // Цена товара, можешь изменить на нужную
+        }
+      }]
+    });
+  },
+  onApprove: function(data, actions) {
+    return actions.order.capture().then(function(details) {
+      alert('Payment Successful! ' + details.payer.name.given_name);
+    });
+  },
+  onError: function(err) {
+    console.error('Error during payment: ', err);
+  }
+}).render('#paypal-button-container');
