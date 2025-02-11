@@ -4,22 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Knoxera</title>
+    <link href="https://fonts.googleapis.com/css2?family=Minecraft&display=swap" rel="stylesheet">
     <style>
+        /* Основной стиль */
         body {
             background-color: black;
             color: white;
-            font-family: Arial, sans-serif;
-            text-align: center;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
+            text-align: center;
             overflow: hidden;
         }
+        
+        /* Шапка */
         .header {
             text-align: left;
             padding: 20px;
-            font-family: 'Minecraftia', sans-serif;
-            font-size: 24px;
+            font-family: 'Minecraft', sans-serif;
+            font-size: 32px;
+            color: #FFD700; /* Желтый цвет */
         }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #222;
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 400px;
+            text-align: left;
+            color: white;
+        }
+        .modal a {
+            color: yellow;
+            cursor: pointer;
+        }
+        .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        /* Плавающие точки */
         .floating-dots {
             position: fixed;
             width: 100%;
@@ -44,34 +78,46 @@
             0% { transform: translateY(0); }
             100% { transform: translateY(-100vh); }
         }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #222;
+
+        /* Контейнер товаров */
+        .product-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             padding: 20px;
+        }
+        .product-card {
+            background-color: #333;
+            margin: 15px;
+            padding: 15px;
+            width: 250px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
-            width: 80%;
-            max-width: 400px;
-            text-align: left;
+            transition: transform 0.3s ease;
+            text-align: center;
         }
-        .modal a {
+        .product-card:hover {
+            transform: scale(1.05);
+        }
+        .product-card h3 {
             color: yellow;
-            cursor: pointer;
         }
-        .close {
-            float: right;
-            cursor: pointer;
+        .product-card p {
+            color: white;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 600px) {
+            .product-card {
+                width: 100%;
+                margin: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">Knoxera</div>
     <p>All products are not real. This is a voluntary donation. <a onclick="openModal()" style="color: yellow; cursor: pointer;">More details</a></p>
-   
+
     <div class="modal" id="termsModal">
         <span class="close" onclick="closeModal()">&times;</span>
         <h2>Terms & Conditions</h2>
@@ -80,10 +126,30 @@
         <p>3. There are no refunds after purchase.</p>
         <p>4. By purchasing, you agree to these terms.</p>
     </div>
-   
+
+    <!-- Контейнер для товаров -->
+    <div class="product-container">
+        <div class="product-card">
+            <h3>Discord Nitro</h3>
+            <p>~50¢~ → 19¢</p>
+            <button onclick="openModal()">More info</button>
+        </div>
+        <div class="product-card">
+            <h3>Steam Gift Card</h3>
+            <p>~$5~ → $1</p>
+            <button onclick="openModal()">More info</button>
+        </div>
+        <div class="product-card">
+            <h3>ChatGPT+</h3>
+            <p>~$10~ → $3</p>
+            <button onclick="openModal()">More info</button>
+        </div>
+    </div>
+
     <div class="floating-dots" id="dot-container"></div>
-   
+
     <script>
+        // Функция для создания точек
         function createDots() {
             const container = document.getElementById("dot-container");
             for (let i = 0; i < 50; i++) {
@@ -99,12 +165,16 @@
                 container.appendChild(dot);
             }
         }
+
+        // Открытие и закрытие модального окна
         function openModal() {
             document.getElementById("termsModal").style.display = "block";
         }
+
         function closeModal() {
             document.getElementById("termsModal").style.display = "none";
         }
+
         createDots();
     </script>
 </body>
