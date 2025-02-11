@@ -26,33 +26,6 @@
             color: #FFD700; /* Желтый цвет */
         }
 
-        /* Модальное окно */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #222;
-            padding: 20px;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 400px;
-            text-align: left;
-            color: white;
-        }
-        .modal a {
-            color: yellow;
-            cursor: pointer;
-        }
-        .close {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            cursor: pointer;
-            font-size: 20px;
-        }
-
         /* Плавающие точки */
         .floating-dots {
             position: fixed;
@@ -79,72 +52,16 @@
             100% { transform: translateY(-100vh); }
         }
 
-        /* Контейнер товаров */
-        .product-container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            padding: 20px;
-        }
-        .product-card {
-            background-color: #333;
-            margin: 15px;
-            padding: 15px;
-            width: 250px;
-            border-radius: 10px;
-            transition: transform 0.3s ease;
-            text-align: center;
-        }
-        .product-card:hover {
-            transform: scale(1.05);
-        }
-        .product-card h3 {
-            color: yellow;
-        }
-        .product-card p {
-            color: white;
-        }
-
         /* Адаптивность */
         @media (max-width: 600px) {
-            .product-card {
-                width: 100%;
-                margin: 10px;
+            .header {
+                font-size: 24px;
             }
         }
     </style>
 </head>
 <body>
     <div class="header">Knoxera</div>
-    <p>All products are not real. This is a voluntary donation. <a onclick="openModal()" style="color: yellow; cursor: pointer;">More details</a></p>
-
-    <div class="modal" id="termsModal">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>Terms & Conditions</h2>
-        <p>1. All purchases are voluntary donations.</p>
-        <p>2. The listed products have no relation to real subscriptions or services.</p>
-        <p>3. There are no refunds after purchase.</p>
-        <p>4. By purchasing, you agree to these terms.</p>
-    </div>
-
-    <!-- Контейнер для товаров -->
-    <div class="product-container">
-        <div class="product-card">
-            <h3>Discord Nitro</h3>
-            <p>~50¢~ → 19¢</p>
-            <button onclick="openModal()">More info</button>
-        </div>
-        <div class="product-card">
-            <h3>Steam Gift Card</h3>
-            <p>~$5~ → $1</p>
-            <button onclick="openModal()">More info</button>
-        </div>
-        <div class="product-card">
-            <h3>ChatGPT+</h3>
-            <p>~$10~ → $3</p>
-            <button onclick="openModal()">More info</button>
-        </div>
-    </div>
 
     <div class="floating-dots" id="dot-container"></div>
 
@@ -164,15 +81,6 @@
                 dot.style.opacity = Math.random();
                 container.appendChild(dot);
             }
-        }
-
-        // Открытие и закрытие модального окна
-        function openModal() {
-            document.getElementById("termsModal").style.display = "block";
-        }
-
-        function closeModal() {
-            document.getElementById("termsModal").style.display = "none";
         }
 
         createDots();
