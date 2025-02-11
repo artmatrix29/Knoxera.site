@@ -3,10 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>knoxera</title>
+    <title>Knoxera</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .floating-dots {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        .dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background-color: white;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: float 10s infinite linear;
+        }
+        @keyframes float {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-100vh); }
+        }
+    </style>
 </head>
 <body>
-    <h1>hello</h1>
-    <img src="https://st4.depositphotos.com/4428871/21305/v/450/depositphotos_213051388-stock-illustration-hello-word-cloud-different-languages.jpg" alt="hello image" />
+    <h1 style="font-family: 'Minecraftia', sans-serif;">Knoxera</h1>
+    <p>All products are not real. <a href="#" style="color: yellow;">More details</a></p>
+    
+    <div class="floating-dots" id="dot-container"></div>
+    
+    <script>
+        function createDots() {
+            const container = document.getElementById("dot-container");
+            for (let i = 0; i < 50; i++) {
+                let dot = document.createElement("div");
+                dot.classList.add("dot");
+                dot.style.left = Math.random() * 100 + "vw";
+                dot.style.top = Math.random() * 100 + "vh";
+                dot.style.animationDuration = (5 + Math.random() * 5) + "s";
+                dot.style.opacity = Math.random();
+                container.appendChild(dot);
+            }
+        }
+        createDots();
+    </script>
 </body>
 </html>
