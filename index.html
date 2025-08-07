@@ -1,97 +1,155 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Knoxera</title>
-    <link href="https://fonts.googleapis.com/css2?family=Minecraft&display=swap" rel="stylesheet">
-    <style>
-        /* Основной стиль */
-        body {
-            background-color: black;
-            color: white;
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            text-align: center;
-            overflow: hidden;
-        }
-        
-        /* Шапка */
-        .header {
-            text-align: left;
-            padding: 20px;
-            font-family: 'Minecraft', sans-serif;
-            font-size: 32px;
-            color: #FFD700; /* Желтый цвет */
-        }
-
-        /* Плавающие точки */
-        .floating-dots {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-        }
-        .dot {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background-color: white;
-            border-radius: 50%;
-            opacity: 0.7;
-            animation: float 10s infinite linear;
-        }
-        .dot.yellow {
-            background-color: yellow;
-        }
-        @keyframes float {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-100vh); }
-        }
-
-        /* Адаптивность */
-        @media (max-width: 600px) {
-            .header {
-                font-size: 24px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>3D бродилка</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    canvas { display: block; }
+    #instructions {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-    <div class="header">Knoxera</div>
+  <div id="instructions">
+    <div>
+      <h1>Нажми для начала</h1>
+      <p>Управление: W A S D — ходить, мышь — крутить камерой, пробел — прыгать</p>
+    </div>
+  </div>
 
-    <div class="floating-dots" id="dot-container"></div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/PointerLockControls.js"></script>
 
-    <script>
-        // Функция для создания точек
-        function createDots() {
-            const container = document.getElementById("dot-container");
-            for (let i = 0; i < 50; i++) {
-                let dot = document.createElement("div");
-                dot.classList.add("dot");
-                if (Math.random() > 0.5) {
-                    dot.classList.add("yellow");
-                }
-                dot.style.left = Math.random() * 100 + "vw";
-                dot.style.top = Math.random() * 100 + "vh";
-                dot.style.animationDuration = (5 + Math.random() * 5) + "s";
-                dot.style.opacity = Math.random();
-                container.appendChild(dot);
-            }
-        }
+  <script>
+    let camera, scene, renderer, controls;
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+    let canJump = false;
+    let velocity = new THREE.Vector3();
+    let direction = new THREE.Vector3();
+    const clock = new THREE.Clock();
 
-        createDots();
-    </script>
+    init();
+    animate();
+
+    function init() {
+      // Сцена
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb); // небо
+
+      // Камера
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+      // Рендерер
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Контроллер
+      controls = new THREE.PointerLockControls(camera, document.body);
+      const instructions = document.getElementById('instructions');
+      instructions.addEventListener('click', () => {
+        controls.lock();
+      });
+      controls.addEventListener('lock', () => { instructions.style.display = 'none'; });
+      controls.addEventListener('unlock', () => { instructions.style.display = ''; });
+      scene.add(controls.getObject());
+
+      // Земля
+      const geometry = new THREE.PlaneGeometry(200, 200);
+      const material = new THREE.MeshPhongMaterial({ color: 0x228B22 });
+      const ground = new THREE.Mesh(geometry, material);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Свет
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(5, 10, 5);
+      scene.add(light);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+      // Управление клавиатурой
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+
+      // Размер экрана
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    function onKeyDown(event) {
+      switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW': moveForward = true; break;
+        case 'ArrowLeft':
+        case 'KeyA': moveLeft = true; break;
+        case 'ArrowDown':
+        case 'KeyS': moveBackward = true; break;
+        case 'ArrowRight':
+        case 'KeyD': moveRight = true; break;
+        case 'Space':
+          if (canJump) velocity.y += 5;
+          canJump = false;
+          break;
+      }
+    }
+
+    function onKeyUp(event) {
+      switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW': moveForward = false; break;
+        case 'ArrowLeft':
+        case 'KeyA': moveLeft = false; break;
+        case 'ArrowDown':
+        case 'KeyS': moveBackward = false; break;
+        case 'ArrowRight':
+        case 'KeyD': moveRight = false; break;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      velocity.x -= velocity.x * 10.0 * delta;
+      velocity.z -= velocity.z * 10.0 * delta;
+      velocity.y -= 9.8 * 5.0 * delta; // гравитация
+
+      direction.z = Number(moveForward) - Number(moveBackward);
+      direction.x = Number(moveRight) - Number(moveLeft);
+      direction.normalize();
+
+      if (moveForward || moveBackward) velocity.z -= direction.z * 50.0 * delta;
+      if (moveLeft || moveRight) velocity.x -= direction.x * 50.0 * delta;
+
+      controls.moveRight(-velocity.x * delta);
+      controls.moveForward(-velocity.z * delta);
+
+      controls.getObject().position.y += velocity.y * delta; // прыжки/падения
+
+      if (controls.getObject().position.y < 1.75) {
+        velocity.y = 0;
+        controls.getObject().position.y = 1.75;
+        canJump = true;
+      }
+
+      renderer.render(scene, camera);
+    }
+  </script>
 </body>
 </html>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-F7QBGJQRBQ"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-F7QBGJQRBQ');
-</script>
