@@ -1,104 +1,259 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>7</title>
+  <meta charset="utf-8" />
+  <title>2D бродилка — линии стен</title>
   <style>
     body {
-      margin: 0; 
-      background: black; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       height: 100vh;
       overflow: hidden;
+      user-select: none;
     }
-    canvas {
-      background: black;
-      display: block;
-    }
+    canvas { background: black; display: block; }
   </style>
 </head>
 <body>
   <canvas id="game" width="640" height="480"></canvas>
 
   <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-    const tileSize = 40;  
-    const map = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
-      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
-      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
-      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
-      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
-      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    ];
+  const tileSize = 40;
+  const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
+    [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
+    [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
+    [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  ];
 
-    const player = {
-      x: tileSize * 1.5,
-      y: tileSize * 1.5,
-      radius: tileSize / 3,
-      speed: 2.5
-    };
+  const player = {
+    x: tileSize * 1.5,
+    y: tileSize * 1.5,
+    radius: tileSize / 3,
+    speed: 2.5
+  };
 
-    const keys = { w:false, a:false, s:false, d:false };
+  const keys = { w:false, a:false, s:false, d:false };
 
-    function drawMap() {
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
-      for (let y = 0; y < map.length; y++) {
-        for (let x = 0; x < map[y].length; x++) {
-          if (map[y][x] === 1) {
-            ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
-          }
+  // Параметры рисования стен (толщина линии)
+  const lineWidth = 6;
+  const halfLine = lineWidth / 2;
+
+  // Массив сегментов стен в пикселях: {x1,y1,x2,y2}
+  let wallSegments = [];
+
+  // Построение сегментов (объединяем соседние рёбра) — чтобы стены были цельными линиями
+  function buildWallSegments() {
+    wallSegments = [];
+    const rows = map.length;
+    const cols = map[0].length;
+
+    // Горизонтальные рёбра (верхние и нижние)
+    for (let y = 0; y < rows; y++) {
+      // верхнее ребро клетки y (между y-1 и y)
+      let x = 0;
+      while (x < cols) {
+        if (map[y][x] === 1 && (y === 0 || map[y-1][x] === 0)) {
+          let start = x;
+          while (x + 1 < cols && map[y][x+1] === 1 && (y === 0 || map[y-1][x+1] === 0)) x++;
+          wallSegments.push({
+            x1: start * tileSize,
+            y1: y * tileSize,
+            x2: (x + 1) * tileSize,
+            y2: y * tileSize
+          });
         }
+        x++;
+      }
+
+      // нижнее ребро клетки y (между y и y+1)
+      x = 0;
+      while (x < cols) {
+        if (map[y][x] === 1 && (y === rows - 1 || map[y+1][x] === 0)) {
+          let start = x;
+          while (x + 1 < cols && map[y][x+1] === 1 && (y === rows - 1 || map[y+1][x+1] === 0)) x++;
+          wallSegments.push({
+            x1: start * tileSize,
+            y1: (y + 1) * tileSize,
+            x2: (x + 1) * tileSize,
+            y2: (y + 1) * tileSize
+          });
+        }
+        x++;
       }
     }
 
-    function drawPlayer() {
-      ctx.fillStyle = '#4cc9f0'; // голубоватый
+    // Вертикальные рёбра (левые и правые)
+    for (let x = 0; x < cols; x++) {
+      // левое ребро клетки x (между x-1 и x)
+      let y = 0;
+      while (y < rows) {
+        if (map[y][x] === 1 && (x === 0 || map[y][x-1] === 0)) {
+          let start = y;
+          while (y + 1 < rows && map[y+1][x] === 1 && (x === 0 || map[y+1][x-1] === 0)) y++;
+          wallSegments.push({
+            x1: x * tileSize,
+            y1: start * tileSize,
+            x2: x * tileSize,
+            y2: (y + 1) * tileSize
+          });
+        }
+        y++;
+      }
+
+      // правое ребро клетки x (между x и x+1)
+      y = 0;
+      while (y < rows) {
+        if (map[y][x] === 1 && (x === cols - 1 || map[y][x+1] === 0)) {
+          let start = y;
+          while (y + 1 < rows && map[y+1][x] === 1 && (x === cols - 1 || map[y+1][x+1] === 0)) y++;
+          wallSegments.push({
+            x1: (x + 1) * tileSize,
+            y1: start * tileSize,
+            x2: (x + 1) * tileSize,
+            y2: (y + 1) * tileSize
+          });
+        }
+        y++;
+      }
+    }
+  }
+
+  // расстояние^2 от точки до отрезка
+  function pointToSegmentDist2(px, py, x1, y1, x2, y2) {
+    const vx = x2 - x1;
+    const vy = y2 - y1;
+    const wx = px - x1;
+    const wy = py - y1;
+    const len2 = vx*vx + vy*vy;
+    if (len2 === 0) {
+      const dx = px - x1, dy = py - y1;
+      return dx*dx + dy*dy;
+    }
+    let t = (wx*vx + wy*vy) / len2;
+    if (t < 0) t = 0;
+    else if (t > 1) t = 1;
+    const cx = x1 + t * vx;
+    const cy = y1 + t * vy;
+    const dx = px - cx, dy = py - cy;
+    return dx*dx + dy*dy;
+  }
+
+  // Проверка столкновения круга (cx,cy,r) с любым сегментом стены
+  function circleHitsWall(cx, cy, r) {
+    const threshold2 = (r + halfLine) * (r + halfLine);
+    for (let seg of wallSegments) {
+      const d2 = pointToSegmentDist2(cx, cy, seg.x1, seg.y1, seg.x2, seg.y2);
+      if (d2 <= threshold2) return true;
+    }
+    return false;
+  }
+
+  function drawWalls() {
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    for (let s of wallSegments) {
       ctx.beginPath();
-      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(s.x1, s.y1);
+      ctx.lineTo(s.x2, s.y2);
+      ctx.stroke();
+    }
+  }
+
+  function drawPlayer() {
+    ctx.fillStyle = '#4cc9f0';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function update() {
+    let dx = 0, dy = 0;
+    if (keys.w) dy -= player.speed;
+    if (keys.s) dy += player.speed;
+    if (keys.a) dx -= player.speed;
+    if (keys.d) dx += player.speed;
+
+    // Нормализация скорости при диагональном движении (чтобы не бежать быстрее по диагонали)
+    if (dx !== 0 && dy !== 0) {
+      const inv = 1 / Math.sqrt(2);
+      dx *= inv;
+      dy *= inv;
     }
 
-    function canMoveTo(x, y) {
-      let gridX = Math.floor(x / tileSize);
-      let gridY = Math.floor(y / tileSize);
-      if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
-      return map[gridY][gridX] === 0;
+    // Попытка перемещения по X, затем по Y (раздельная обработка помогает скользить по стенам)
+    const tryX = player.x + dx;
+    if (!circleHitsWall(tryX, player.y, player.radius)) {
+      player.x = tryX;
+    } else {
+      // попробуем аккуратно подвинуть на меньший шаг (блокировка при столкновении)
+      // уменьшение шага помогает избежать "залипания" при быстром движении
+      const steps = 4;
+      let moved = false;
+      for (let i = 1; i <= steps; i++) {
+        const smallX = player.x + dx * (i / steps);
+        if (!circleHitsWall(smallX, player.y, player.radius)) {
+          player.x = smallX;
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) { /* не двигаем по X */ }
     }
 
-    function update() {
-      let nextX = player.x;
-      let nextY = player.y;
-
-      if (keys.w) nextY -= player.speed;
-      if (keys.s) nextY += player.speed;
-      if (keys.a) nextX -= player.speed;
-      if (keys.d) nextX += player.speed;
-
-      if (canMoveTo(nextX + player.radius, player.y) && canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
-      if (canMoveTo(player.x, nextY + player.radius) && canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+    const tryY = player.y + dy;
+    if (!circleHitsWall(player.x, tryY, player.radius)) {
+      player.y = tryY;
+    } else {
+      const steps = 4;
+      let moved = false;
+      for (let i = 1; i <= steps; i++) {
+        const smallY = player.y + dy * (i / steps);
+        if (!circleHitsWall(player.x, smallY, player.radius)) {
+          player.y = smallY;
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) { /* не двигаем по Y */ }
     }
+  }
 
-    function loop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawMap();
-      drawPlayer();
-      update();
-      requestAnimationFrame(loop);
-    }
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawWalls();
+    drawPlayer();
+    update();
+    requestAnimationFrame(loop);
+  }
 
-    window.addEventListener('keydown', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
-    window.addEventListener('keyup', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
+  // клавиши
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (k in keys) keys[k] = true;
+  });
+  window.addEventListener('keyup', e => {
+    const k = e.key.toLowerCase();
+    if (k in keys) keys[k] = false;
+  });
 
-    loop();
+  // init
+  buildWallSegments();
+  loop();
+
   </script>
 </body>
 </html>
