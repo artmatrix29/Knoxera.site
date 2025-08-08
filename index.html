@@ -1,55 +1,180 @@
-function drawMap() {
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 1.8;  // сделай толще или тоньше на вкус
-  ctx.beginPath();
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Knoxera</title>
+  <link rel="icon" type="image/png" href="knoxeralogo.png">
 
-  // Проходим по строкам и рисуем горизонтальные линии стен
-  for (let y = 0; y <= map.length; y++) {
-    let startX = null;
-    for (let x = 0; x < map[0].length; x++) {
-      const above = (y > 0 && map[y-1][x] === 1);
-      const below = (y < map.length && map[y] && map[y][x] === 1);
+  <meta property="og:title" content="Knoxera" />
+  <meta property="og:image" content="https://knoxera.site/knoxeralogo.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
 
-      // Линия нужна если есть стена сверху, а снизу нет (нижняя граница стены)
-      // или наоборот — чтобы соединять блоки
-      if (above !== below) {
-        if (startX === null) startX = x;
-      } else {
+  <style>
+    body {
+      margin: 0; 
+      background: black; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas {
+      background: black;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="640" height="480"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const tileSize = 40;  
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
+      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
+
+    const player = {
+      x: tileSize * 1.5,
+      y: tileSize * 1.5,
+      radius: tileSize / 3,
+      speed: 2.5
+    };
+
+    const keys = { w:false, a:false, s:false, d:false };
+
+    // Рисуем стены как цельные линии без разрывов
+    function drawMap() {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+
+      // Горизонтальные линии
+      for (let y = 0; y <= map.length; y++) {
+        let startX = null;
+        for (let x = 0; x < map[0].length; x++) {
+          const above = (y > 0 && map[y-1][x] === 1);
+          const below = (y < map.length && map[y] && map[y][x] === 1);
+
+          if (above !== below) {
+            if (startX === null) startX = x;
+          } else {
+            if (startX !== null) {
+              ctx.moveTo(startX * tileSize, y * tileSize);
+              ctx.lineTo(x * tileSize, y * tileSize);
+              startX = null;
+            }
+          }
+        }
         if (startX !== null) {
           ctx.moveTo(startX * tileSize, y * tileSize);
-          ctx.lineTo(x * tileSize, y * tileSize);
-          startX = null;
+          ctx.lineTo(map[0].length * tileSize, y * tileSize);
         }
       }
-    }
-    if (startX !== null) {
-      ctx.moveTo(startX * tileSize, y * tileSize);
-      ctx.lineTo(map[0].length * tileSize, y * tileSize);
-    }
-  }
 
-  // Проходим по столбцам и рисуем вертикальные линии стен
-  for (let x = 0; x <= map[0].length; x++) {
-    let startY = null;
-    for (let y = 0; y < map.length; y++) {
-      const left = (x > 0 && map[y][x-1] === 1);
-      const right = (x < map[0].length && map[y][x] === 1);
+      // Вертикальные линии
+      for (let x = 0; x <= map[0].length; x++) {
+        let startY = null;
+        for (let y = 0; y < map.length; y++) {
+          const left = (x > 0 && map[y][x-1] === 1);
+          const right = (x < map[0].length && map[y][x] === 1);
 
-      if (left !== right) {
-        if (startY === null) startY = y;
-      } else {
+          if (left !== right) {
+            if (startY === null) startY = y;
+          } else {
+            if (startY !== null) {
+              ctx.moveTo(x * tileSize, startY * tileSize);
+              ctx.lineTo(x * tileSize, y * tileSize);
+              startY = null;
+            }
+          }
+        }
         if (startY !== null) {
           ctx.moveTo(x * tileSize, startY * tileSize);
-          ctx.lineTo(x * tileSize, y * tileSize);
-          startY = null;
+          ctx.lineTo(x * tileSize, map.length * tileSize);
         }
       }
-    }
-    if (startY !== null) {
-      ctx.moveTo(x * tileSize, startY * tileSize);
-      ctx.lineTo(x * tileSize, map.length * tileSize);
-    }
-  }
 
-  ctx.stroke();
-}
+      ctx.stroke();
+    }
+
+    // Проверка столкновения круга игрока со стенами (прямоугольниками)
+    function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
+      const nearestX = Math.max(rx, Math.min(cx, rx + rw));
+      const nearestY = Math.max(ry, Math.min(cy, ry + rh));
+      const dx = cx - nearestX;
+      const dy = cy - nearestY;
+      return (dx * dx + dy * dy) < (radius * radius);
+    }
+
+    // Проверяем можно ли двигаться на позицию (x,y)
+    function canMoveTo(x, y) {
+      for (let yIndex = 0; yIndex < map.length; yIndex++) {
+        for (let xIndex = 0; xIndex < map[yIndex].length; xIndex++) {
+          if (map[yIndex][xIndex] === 1) {
+            if (circleRectCollision(x, y, player.radius,
+              xIndex * tileSize, yIndex * tileSize,
+              tileSize, tileSize)) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    // Рисуем игрока — голубой кружок
+    function drawPlayer() {
+      ctx.fillStyle = '#4cc9f0';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Обновляем позицию игрока, если нет столкновений
+    function update() {
+      let nextX = player.x;
+      let nextY = player.y;
+
+      if (keys.w) nextY -= player.speed;
+      if (keys.s) nextY += player.speed;
+      if (keys.a) nextX -= player.speed;
+      if (keys.d) nextX += player.speed;
+
+      if (canMoveTo(nextX, player.y)) player.x = nextX;
+      if (canMoveTo(player.x, nextY)) player.y = nextY;
+    }
+
+    // Главный цикл игры
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawMap();
+      drawPlayer();
+      update();
+      requestAnimationFrame(loop);
+    }
+
+    // Обработчики нажатий клавиш
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+    });
+
+    loop();
+  </script>
+</body>
+</html>
