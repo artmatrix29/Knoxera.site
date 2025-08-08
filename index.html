@@ -1,145 +1,55 @@
-<body>
-  <header style="display: flex; align-items: center; padding: 10px 20px; background: black; color: white; font-family: Arial, sans-serif; font-size: 28px;">
-    <img src="knoxeralogo.png" alt="Knoxera Logo" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 12px;">
-    Knoxera
-  </header>
+function drawMap() {
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 1.8;  // сделай толще или тоньше на вкус
+  ctx.beginPath();
 
-  <canvas id="game" width="640" height="480" style="display: block; margin: 20px auto; background: black;"></canvas>
+  // Проходим по строкам и рисуем горизонтальные линии стен
+  for (let y = 0; y <= map.length; y++) {
+    let startX = null;
+    for (let x = 0; x < map[0].length; x++) {
+      const above = (y > 0 && map[y-1][x] === 1);
+      const below = (y < map.length && map[y] && map[y][x] === 1);
 
-  <!-- Скрипт и остальное как есть -->
-</body>
-
-  <style>
-    body {
-      margin: 0; 
-      background: black; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      height: 100vh;
-      overflow: hidden;
-    }
-    canvas {
-      background: black;
-      display: block;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="game" width="640" height="480"></canvas>
-
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
-
-    const tileSize = 40;  
-    const map = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
-      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
-      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
-      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
-      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
-      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    ];
-
-    const player = {
-      x: tileSize * 1.5,
-      y: tileSize * 1.5,
-      radius: tileSize / 3,
-      speed: 2.5
-    };
-
-    const keys = { w:false, a:false, s:false, d:false };
-
-    // Рисуем стены с линиями, а не блоками
-    function drawMap() {
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 3;
-      for (let y = 0; y < map.length; y++) {
-        for (let x = 0; x < map[y].length; x++) {
-          if (map[y][x] === 1) {
-            // Рисуем квадрат с пустым центром (линия)
-            ctx.beginPath();
-            ctx.moveTo(x * tileSize, y * tileSize);
-            ctx.lineTo((x+1) * tileSize, y * tileSize);
-            ctx.lineTo((x+1) * tileSize, (y+1) * tileSize);
-            ctx.lineTo(x * tileSize, (y+1) * tileSize);
-            ctx.closePath();
-            ctx.stroke();
-          }
+      // Линия нужна если есть стена сверху, а снизу нет (нижняя граница стены)
+      // или наоборот — чтобы соединять блоки
+      if (above !== below) {
+        if (startX === null) startX = x;
+      } else {
+        if (startX !== null) {
+          ctx.moveTo(startX * tileSize, y * tileSize);
+          ctx.lineTo(x * tileSize, y * tileSize);
+          startX = null;
         }
       }
     }
-
-    // Проверка коллизий по окружности (кружок игрока не должен пересекать стены)
-    function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
-      // Найти ближайшую точку прямоугольника к центру круга
-      const nearestX = Math.max(rx, Math.min(cx, rx + rw));
-      const nearestY = Math.max(ry, Math.min(cy, ry + rh));
-
-      // Вычислить расстояние между центром круга и этой точкой
-      const dx = cx - nearestX;
-      const dy = cy - nearestY;
-
-      // Если расстояние меньше радиуса - столкновение
-      return (dx * dx + dy * dy) < (radius * radius);
+    if (startX !== null) {
+      ctx.moveTo(startX * tileSize, y * tileSize);
+      ctx.lineTo(map[0].length * tileSize, y * tileSize);
     }
+  }
 
-    // Проверка, можно ли двигаться
-    function canMoveTo(x, y) {
-      // Проверяем столкновение с каждой стеной
-      for (let yIndex = 0; yIndex < map.length; yIndex++) {
-        for (let xIndex = 0; xIndex < map[yIndex].length; xIndex++) {
-          if (map[yIndex][xIndex] === 1) {
-            if (circleRectCollision(
-              x, y, player.radius,
-              xIndex * tileSize, yIndex * tileSize,
-              tileSize, tileSize)) {
-                return false;
-            }
-          }
+  // Проходим по столбцам и рисуем вертикальные линии стен
+  for (let x = 0; x <= map[0].length; x++) {
+    let startY = null;
+    for (let y = 0; y < map.length; y++) {
+      const left = (x > 0 && map[y][x-1] === 1);
+      const right = (x < map[0].length && map[y][x] === 1);
+
+      if (left !== right) {
+        if (startY === null) startY = y;
+      } else {
+        if (startY !== null) {
+          ctx.moveTo(x * tileSize, startY * tileSize);
+          ctx.lineTo(x * tileSize, y * tileSize);
+          startY = null;
         }
       }
-      // Если нигде не пересекается — можно двигаться
-      return true;
     }
-
-    function drawPlayer() {
-      ctx.fillStyle = '#4cc9f0';
-      ctx.beginPath();
-      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-      ctx.fill();
+    if (startY !== null) {
+      ctx.moveTo(x * tileSize, startY * tileSize);
+      ctx.lineTo(x * tileSize, map.length * tileSize);
     }
+  }
 
-    function update() {
-      let nextX = player.x;
-      let nextY = player.y;
-
-      if (keys.w) nextY -= player.speed;
-      if (keys.s) nextY += player.speed;
-      if (keys.a) nextX -= player.speed;
-      if (keys.d) nextX += player.speed;
-
-      if (canMoveTo(nextX, player.y)) player.x = nextX;
-      if (canMoveTo(player.x, nextY)) player.y = nextY;
-    }
-
-    function loop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawMap();
-      drawPlayer();
-      update();
-      requestAnimationFrame(loop);
-    }
-
-    window.addEventListener('keydown', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
-    window.addEventListener('keyup', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
-
-    loop();
-  </script>
-</body>
-</html>
-
+  ctx.stroke();
+}
