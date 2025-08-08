@@ -2,134 +2,127 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Knoxera — Бродилка</title>
+  <title>2D бродилка — белые стены и кружок игрока</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    #instructions {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: rgba(0,0,0,0.8);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      cursor: pointer;
+    body {
+      margin: 0; 
+      background: black; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+    canvas {
+      background: #111;
+      display: block;
+      border: 2px solid white;
     }
   </style>
 </head>
 <body>
-  <div id="instructions">
-    <div>
-      <h1>Нажми, чтобы начать</h1>
-      <p>WASD — ходить<br>Мышь — смотреть<br>Пробел — прыгать</p>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/examples/js/controls/PointerLockControls.js"></script>
+  <canvas id="game" width="640" height="480"></canvas>
 
   <script>
-    let camera, scene, renderer, controls;
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-    let canJump = false;
-    let velocity = new THREE.Vector3();
-    let direction = new THREE.Vector3();
-    const clock = new THREE.Clock();
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-    init();
-    animate();
+    const tileSize = 40;  // размер клетки
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
+      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
 
-    function init() {
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x87ceeb);
+    const player = {
+      x: tileSize * 1.5,  // позиция в пикселях
+      y: tileSize * 1.5,
+      radius: tileSize / 3,
+      speed: 2.5
+    };
 
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const keys = {
+      w: false,
+      a: false,
+      s: false,
+      d: false
+    };
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
-
-      controls = new THREE.PointerLockControls(camera, document.body);
-      const instructions = document.getElementById('instructions');
-      instructions.addEventListener('click', () => controls.lock());
-      controls.addEventListener('lock', () => { instructions.style.display = 'none'; });
-      controls.addEventListener('unlock', () => { instructions.style.display = ''; });
-      scene.add(controls.getObject());
-
-      const geometry = new THREE.PlaneGeometry(200, 200);
-      const material = new THREE.MeshPhongMaterial({ color: 0x228B22 });
-      const ground = new THREE.Mesh(geometry, material);
-      ground.rotation.x = -Math.PI / 2;
-      scene.add(ground);
-
-      const light = new THREE.DirectionalLight(0xffffff, 1);
-      light.position.set(5, 10, 5);
-      scene.add(light);
-      scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-
-      document.addEventListener('keydown', onKeyDown);
-      document.addEventListener('keyup', onKeyUp);
-
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
-    }
-
-    function onKeyDown(event) {
-      switch (event.code) {
-        case 'KeyW': moveForward = true; break;
-        case 'KeyA': moveLeft = true; break;
-        case 'KeyS': moveBackward = true; break;
-        case 'KeyD': moveRight = true; break;
-        case 'Space':
-          if (canJump) velocity.y += 5;
-          canJump = false;
-          break;
+    function drawMap() {
+      for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+          if (map[y][x] === 1) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
+        }
       }
     }
 
-    function onKeyUp(event) {
-      switch (event.code) {
-        case 'KeyW': moveForward = false; break;
-        case 'KeyA': moveLeft = false; break;
-        case 'KeyS': moveBackward = false; break;
-        case 'KeyD': moveRight = false; break;
-      }
+    function drawPlayer() {
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    function animate() {
-      requestAnimationFrame(animate);
+    function canMoveTo(x, y) {
+      // Проверка столкновения с картой
+      // Получаем индексы клетки
+      let gridX = Math.floor(x / tileSize);
+      let gridY = Math.floor(y / tileSize);
 
-      const delta = clock.getDelta();
-      velocity.x -= velocity.x * 10.0 * delta;
-      velocity.z -= velocity.z * 10.0 * delta;
-      velocity.y -= 9.8 * 5.0 * delta;
+      if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
 
-      direction.z = Number(moveForward) - Number(moveBackward);
-      direction.x = Number(moveRight) - Number(moveLeft);
-      direction.normalize();
-
-      if (moveForward || moveBackward) velocity.z -= direction.z * 50.0 * delta;
-      if (moveLeft || moveRight) velocity.x -= direction.x * 50.0 * delta;
-
-      controls.moveRight(-velocity.x * delta);
-      controls.moveForward(-velocity.z * delta);
-
-      controls.getObject().position.y += velocity.y * delta;
-
-      if (controls.getObject().position.y < 1.75) {
-        velocity.y = 0;
-        controls.getObject().position.y = 1.75;
-        canJump = true;
-      }
-
-      renderer.render(scene, camera);
+      return map[gridY][gridX] === 0;
     }
+
+    function update() {
+      let nextX = player.x;
+      let nextY = player.y;
+
+      if (keys.w) nextY -= player.speed;
+      if (keys.s) nextY += player.speed;
+      if (keys.a) nextX -= player.speed;
+      if (keys.d) nextX += player.speed;
+
+      // Проверяем по точкам вокруг игрока, чтобы не пройти сквозь стену
+      if (canMoveTo(nextX + player.radius, player.y)) player.x = nextX;
+      if (canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
+      if (canMoveTo(player.x, nextY + player.radius)) player.y = nextY;
+      if (canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+    }
+
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawMap();
+      drawPlayer();
+      update();
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = true;
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      if (e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = false;
+      }
+    });
+
+    loop();
   </script>
 </body>
 </html>
