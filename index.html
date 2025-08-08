@@ -2,8 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Ноксера</title>
+  <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png">
+
+  <meta property="og:title" content="Knoxera" />
+  <meta property="og:image" content="https://knoxera.site/knoxeralogo.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
   <style>
     body {
       margin: 0; 
@@ -49,16 +55,57 @@
 
     const keys = { w:false, a:false, s:false, d:false };
 
+    // Рисуем стены с линиями, а не блоками
     function drawMap() {
       ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       for (let y = 0; y < map.length; y++) {
         for (let x = 0; x < map[y].length; x++) {
           if (map[y][x] === 1) {
-            ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+            // Рисуем квадрат с пустым центром (линия)
+            ctx.beginPath();
+            ctx.moveTo(x * tileSize, y * tileSize);
+            ctx.lineTo((x+1) * tileSize, y * tileSize);
+            ctx.lineTo((x+1) * tileSize, (y+1) * tileSize);
+            ctx.lineTo(x * tileSize, (y+1) * tileSize);
+            ctx.closePath();
+            ctx.stroke();
           }
         }
       }
+    }
+
+    // Проверка коллизий по окружности (кружок игрока не должен пересекать стены)
+    function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
+      // Найти ближайшую точку прямоугольника к центру круга
+      const nearestX = Math.max(rx, Math.min(cx, rx + rw));
+      const nearestY = Math.max(ry, Math.min(cy, ry + rh));
+
+      // Вычислить расстояние между центром круга и этой точкой
+      const dx = cx - nearestX;
+      const dy = cy - nearestY;
+
+      // Если расстояние меньше радиуса - столкновение
+      return (dx * dx + dy * dy) < (radius * radius);
+    }
+
+    // Проверка, можно ли двигаться
+    function canMoveTo(x, y) {
+      // Проверяем столкновение с каждой стеной
+      for (let yIndex = 0; yIndex < map.length; yIndex++) {
+        for (let xIndex = 0; xIndex < map[yIndex].length; xIndex++) {
+          if (map[yIndex][xIndex] === 1) {
+            if (circleRectCollision(
+              x, y, player.radius,
+              xIndex * tileSize, yIndex * tileSize,
+              tileSize, tileSize)) {
+                return false;
+            }
+          }
+        }
+      }
+      // Если нигде не пересекается — можно двигаться
+      return true;
     }
 
     function drawPlayer() {
@@ -66,13 +113,6 @@
       ctx.beginPath();
       ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
       ctx.fill();
-    }
-
-    function canMoveTo(x, y) {
-      let gridX = Math.floor(x / tileSize);
-      let gridY = Math.floor(y / tileSize);
-      if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
-      return map[gridY][gridX] === 0;
     }
 
     function update() {
@@ -84,8 +124,8 @@
       if (keys.a) nextX -= player.speed;
       if (keys.d) nextX += player.speed;
 
-      if (canMoveTo(nextX + player.radius, player.y) && canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
-      if (canMoveTo(player.x, nextY + player.radius) && canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+      if (canMoveTo(nextX, player.y)) player.x = nextX;
+      if (canMoveTo(player.x, nextY)) player.y = nextY;
     }
 
     function loop() {
