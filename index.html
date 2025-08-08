@@ -1,111 +1,105 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>Ноксера</title>
-<style>
+  <meta charset="UTF-8" />
+  <title>Ноксера</title>
+  <link rel="icon" type="image/png" href="knoxeralogo.png">
+  <style>
     body {
-        margin: 0;
-        background: black;
-        overflow: hidden;
+      margin: 0; 
+      background: black; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      height: 100vh;
+      overflow: hidden;
     }
     canvas {
-        display: block;
+      background: black;
+      display: block;
     }
-</style>
+  </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+  <canvas id="game" width="640" height="480"></canvas>
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-const tileSize = 80;
+    const tileSize = 40;  
+    const map = [
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
+      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
+      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
+      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
+      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    ];
 
-// Карта (0 - пусто, 1 - стена)
-const map = [
-    [1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,1],
-    [1,0,1,0,1,1,1,0,0,1],
-    [1,0,1,0,0,0,1,0,0,1],
-    [1,0,1,1,1,0,1,0,0,1],
-    [1,0,0,0,0,0,1,0,0,1],
-    [1,1,1,1,1,1,1,1,0,1],
-    [1,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1],
-];
+    const player = {
+      x: tileSize * 1.5,
+      y: tileSize * 1.5,
+      radius: tileSize / 3,
+      speed: 2.5
+    };
 
-let player = {
-    x: tileSize * 1.5,
-    y: tileSize * 1.5,
-    radius: tileSize / 4,
-    speed: 3,
-    color: "#4cc9f0"
-};
+    const keys = { w:false, a:false, s:false, d:false };
 
-let keys = { w:false, a:false, s:false, d:false };
-let camera = { x:0, y:0 };
-
-function drawMap() {
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let y = 0; y < map.length; y++) {
+    function drawMap() {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
+      for (let y = 0; y < map.length; y++) {
         for (let x = 0; x < map[y].length; x++) {
-            if (map[y][x] === 1) {
-                ctx.rect(x * tileSize - camera.x, y * tileSize - camera.y, tileSize, tileSize);
-            }
+          if (map[y][x] === 1) {
+            ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+          }
         }
+      }
     }
-    ctx.stroke();
-}
 
-function drawPlayer() {
-    ctx.fillStyle = player.color;
-    ctx.beginPath();
-    ctx.arc(player.x - camera.x, player.y - camera.y, player.radius, 0, Math.PI * 2);
-    ctx.fill();
-}
+    function drawPlayer() {
+      ctx.fillStyle = '#4cc9f0';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-function canMoveTo(x, y) {
-    let gridX = Math.floor(x / tileSize);
-    let gridY = Math.floor(y / tileSize);
-    if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
-    return map[gridY][gridX] === 0;
-}
+    function canMoveTo(x, y) {
+      let gridX = Math.floor(x / tileSize);
+      let gridY = Math.floor(y / tileSize);
+      if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
+      return map[gridY][gridX] === 0;
+    }
 
-function update() {
-    let nextX = player.x;
-    let nextY = player.y;
+    function update() {
+      let nextX = player.x;
+      let nextY = player.y;
 
-    if (keys.w) nextY -= player.speed;
-    if (keys.s) nextY += player.speed;
-    if (keys.a) nextX -= player.speed;
-    if (keys.d) nextX += player.speed;
+      if (keys.w) nextY -= player.speed;
+      if (keys.s) nextY += player.speed;
+      if (keys.a) nextX -= player.speed;
+      if (keys.d) nextX += player.speed;
 
-    if (canMoveTo(nextX + player.radius, player.y) && canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
-    if (canMoveTo(player.x, nextY + player.radius) && canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+      if (canMoveTo(nextX + player.radius, player.y) && canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
+      if (canMoveTo(player.x, nextY + player.radius) && canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+    }
 
-    // Камера следует за игроком
-    camera.x = player.x - canvas.width / 2;
-    camera.y = player.y - canvas.height / 2;
-}
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawMap();
+      drawPlayer();
+      update();
+      requestAnimationFrame(loop);
+    }
 
-function loop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawMap();
-    drawPlayer();
-    update();
-    requestAnimationFrame(loop);
-}
+    window.addEventListener('keydown', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
+    window.addEventListener('keyup', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
 
-window.addEventListener("keydown", e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
-window.addEventListener("keyup", e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
-
-loop();
-</script>
+    loop();
+  </script>
 </body>
 </html>
