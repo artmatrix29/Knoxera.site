@@ -1,19 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
-  
-  <!-- Firebase App (обязательно) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <!-- Firebase Analytics (не обязательно) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics-compat.js"></script>
-  <!-- Firebase Authentication -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <!-- Firebase Firestore (если нужно, сейчас не используется) -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-
   <style>
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -70,7 +60,7 @@
       image-rendering: pixelated;
     }
 
-    /* Меню */
+    /* Menu */
     #menu {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -144,30 +134,8 @@
       opacity: 0.4;
       cursor: not-allowed;
     }
-    #google-login {
-      margin-top: 15px;
-      background: white;
-      color: black;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      border-radius: 5px;
-      padding: 10px;
-      font-weight: bold;
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.3s ease;
-    }
-    #google-login:hover {
-      background: #ddd;
-    }
-    #google-login img {
-      height: 20px;
-      width: 20px;
-    }
 
-    /* Плавающие шарики */
+    /* Floating particles */
     #particles {
       position: fixed;
       top: 0; left: 0;
@@ -183,23 +151,18 @@
 
   <div id="menu">
     <canvas id="particles"></canvas>
-    <h2>Регистрация аккаунта</h2>
+    <h2>Account Registration</h2>
     <div id="form-container">
       <label for="email">Email</label>
-      <input type="email" id="email" placeholder="Введите email" required />
+      <input type="email" id="email" placeholder="Enter email" required />
 
-      <label for="password">Пароль</label>
-      <input type="password" id="password" placeholder="Введите пароль" required />
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter password" required />
 
-      <label for="nickname">Никнейм</label>
-      <input type="text" id="nickname" placeholder="Ваш ник" maxlength="20" required />
+      <label for="nickname">Nickname</label>
+      <input type="text" id="nickname" placeholder="Your nickname" maxlength="20" required />
 
-      <button id="registerBtn" disabled>Зарегистрироваться</button>
-
-      <div id="google-login">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png" alt="Google logo" />
-        Войти через Google
-      </div>
+      <button id="registerBtn" disabled>Register</button>
     </div>
   </div>
 
@@ -215,8 +178,11 @@
     <span id="crystal-count">0</span>
   </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
 <script>
-  // Конфигурация Firebase
+  // --- Firebase config ---
   const firebaseConfig = {
     apiKey: "AIzaSyD6kjiQCEjtI537KqmEN34NxOZ6BBIbC2c",
     authDomain: "knoxera.firebaseapp.com",
@@ -227,11 +193,11 @@
     measurementId: "G-913NRJWC1Z"
   };
 
-  // Инициализация Firebase
+  // Initialize Firebase
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
 
-  // --- Валидация формы регистрации ---
+  // --- Form validation ---
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
   const nicknameInput = document.getElementById('nickname');
@@ -248,62 +214,41 @@
   passwordInput.addEventListener('input', validateForm);
   nicknameInput.addEventListener('input', validateForm);
 
-  // --- Регистрация пользователя через Firebase ---
-  registerBtn.addEventListener('click', async () => {
+  // --- Registration and login ---
+  registerBtn.addEventListener('click', () => {
     const email = emailInput.value.trim();
     const password = passwordInput.value.trim();
     const nickname = nicknameInput.value.trim();
-
     if (!email || !password || !nickname) return;
 
-    try {
-      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-      // Обновляем профиль пользователя, чтобы сохранить никнейм
-      await userCredential.user.updateProfile({ displayName: nickname });
+    registerBtn.disabled = true;
+    registerBtn.textContent = 'Registering...';
 
-      // Успешная регистрация — скрываем меню и запускаем игру
-      onLoginSuccess();
-    } catch (error) {
-      alert(`Ошибка регистрации: ${error.message}`);
-    }
+    auth.createUserWithEmailAndPassword(email, password)
+      .then(userCredential => {
+        // User registered
+        // Optionally, you can update profile with nickname
+        return userCredential.user.updateProfile({ displayName: nickname });
+      })
+      .then(() => {
+        // Hide menu, show game UI
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('header').style.display = 'flex';
+        document.getElementById('game').style.display = 'block';
+        document.getElementById('counter').style.display = 'flex';
+
+        startGame();
+      })
+      .catch(error => {
+        alert('Registration error: ' + error.message);
+      })
+      .finally(() => {
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Register';
+      });
   });
 
-  // --- Вход через Google ---
-  document.getElementById('google-login').addEventListener('click', async () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    try {
-      const result = await auth.signInWithPopup(provider);
-      // После успешного входа запускаем игру
-      onLoginSuccess();
-    } catch (error) {
-      alert(`Ошибка входа через Google: ${error.message}`);
-    }
-  });
-
-  // --- После успешной регистрации или входа ---
-  function onLoginSuccess() {
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('header').style.display = 'flex';
-    document.getElementById('game').style.display = 'block';
-    document.getElementById('counter').style.display = 'flex';
-
-    // Можно показать никнейм в шапке, если хочешь
-    // const user = auth.currentUser;
-    // if (user && user.displayName) {
-    //   document.getElementById('header').innerHTML += `<span style="margin-left: 10px;">${user.displayName}</span>`;
-    // }
-
-    startGame();
-  }
-
-  // --- Проверяем, если пользователь уже залогинен при загрузке ---
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      onLoginSuccess();
-    }
-  });
-
-  // === Плавающие шарики на фоне меню ===
+  // --- Particles for menu background ---
   const particlesCanvas = document.getElementById('particles');
   const pCtx = particlesCanvas.getContext('2d');
 
@@ -323,88 +268,7 @@
     particles.push({
       x: Math.random() * pWidth,
       y: Math.random() * pHeight,
-      r: 10 + Math.random() * 20,
-      dx: (Math.random() - 0.5) * 0.3,
-      dy: (Math.random() - 0.5) * 0.3,
-      alpha: 0.2 + Math.random() * 0.2,
-    });
-  }
-  function drawParticles() {
-    pCtx.clearRect(0, 0, pWidth, pHeight);
-    for (const p of particles) {
-      p.x += p.dx;
-      p.y += p.dy;
-      if (p.x < -p.r) p.x = pWidth + p.r;
-      if (p.x > pWidth + p.r) p.x = -p.r;
-      if (p.y < -p.r) p.y = pHeight + p.r;
-      if (p.y > pHeight + p.r) p.y = -p.r;
-
-      const gradient = pCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-      gradient.addColorStop(0, `rgba(76, 201, 240, ${p.alpha})`);
-      gradient.addColorStop(1, `rgba(76, 201, 240, 0)`);
-
-      pCtx.fillStyle = gradient;
-      pCtx.beginPath();
-      pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      pCtx.fill();
-    }
-    requestAnimationFrame(drawParticles);
-  }
-  drawParticles();
-
-  // --- Твой игровой код ---
-
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
-  let width, height;
-
-  function resizeGameCanvas() {
-    width = window.innerWidth;
-    height = window.innerHeight - 90; // отнимаем высоту шапки и счетчика
-    canvas.width = width;
-    canvas.height = height;
-  }
-  resizeGameCanvas();
-  window.addEventListener('resize', resizeGameCanvas);
-
-  // Примерная игровая логика
-  let gameRunning = false;
-  let crystals = 0;
-
-  const crystalCounter = document.getElementById('crystal-count');
-
-  function startGame() {
-    if (gameRunning) return;
-    gameRunning = true;
-    crystals = 0;
-    crystalCounter.textContent = crystals;
-
-    // Твой код для игры, например простой анимационный цикл
-
-    function gameLoop() {
-      if (!gameRunning) return;
-
-      ctx.clearRect(0, 0, width, height);
-
-      // Нарисуем кристалл (пример)
-      ctx.fillStyle = '#4cc9f0';
-      ctx.beginPath();
-      ctx.moveTo(width / 2, height / 2 - 30);
-      ctx.lineTo(width / 2 + 20, height / 2);
-      ctx.lineTo(width / 2, height / 2 + 30);
-      ctx.lineTo(width / 2 - 20, height / 2);
-      ctx.closePath();
-      ctx.fill();
-
-      // Обновим счетчик кристаллов
-      crystals++;
-      crystalCounter.textContent = crystals;
-
-      requestAnimationFrame(gameLoop);
-    }
-    gameLoop();
-  }
-
-</script>
-</body>
-</html>
+      radius: Math.random() * 3 + 1,
+      speedY: Math.random() * 0.6 + 0.2,
+      speedX: (Math.random() - 0.5) * 0.3,
+      alpha: Math.random() * 0.6 + 0.6, // чуть более яркие белые шарики
