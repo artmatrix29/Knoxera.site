@@ -4,14 +4,17 @@
   <meta charset="UTF-8" />
   <title>Knoxera</title>
   <style>
-    body {
-      margin: 0;
+    html, body {
+      margin: 0; padding: 0; height: 100%;
       background: black;
       overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     canvas {
-      display: block;
       background: black;
+      display: block;
     }
   </style>
 </head>
@@ -23,10 +26,9 @@
   const ctx = canvas.getContext('2d');
 
   const tileSize = 40;
-  const chunkSize = 8; // 8x8 клеток на чанк
-  const viewChunksRadius = 2; // сколько чанков рисуем вокруг игрока
+  const chunkSize = 8; 
+  const viewChunksRadius = 2;
 
-  // Игрок
   const player = {
     x: tileSize * 1.5,
     y: tileSize * 1.5,
@@ -36,23 +38,43 @@
 
   const keys = { w:false, a:false, s:false, d:false };
 
-  // Загруженные чанки в формате { "cx,cy": chunk }
   const loadedChunks = {};
 
-  // Генерация чанка с границами и случайными стенами внутри
+  // Генерация чанка с минимум одним выходом на каждой стороне
   function generateChunk(cx, cy) {
     let chunk = [];
     for (let y = 0; y < chunkSize; y++) {
       let row = [];
       for (let x = 0; x < chunkSize; x++) {
+        // стены по границе
         if (x === 0 || y === 0 || x === chunkSize - 1 || y === chunkSize - 1) {
-          row.push(1); // стены по границе чанка
+          row.push(1);
         } else {
-          row.push(Math.random() < 0.1 ? 1 : 0); // случайные стены 10%
+          row.push(Math.random() < 0.1 ? 1 : 0);
         }
       }
       chunk.push(row);
     }
+
+    // Сделаем выходы (открытия) на границах чанка:
+    // для связности с соседними чанками на всех 4 сторонах
+
+    // Выход слева (x=0), случайный y между 1 и chunkSize-2
+    const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+    chunk[exitLeftY][0] = 0;
+
+    // Выход справа (x=chunkSize-1)
+    const exitRightY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+    chunk[exitRightY][chunkSize - 1] = 0;
+
+    // Выход сверху (y=0)
+    const exitTopX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+    chunk[0][exitTopX] = 0;
+
+    // Выход снизу (y=chunkSize-1)
+    const exitBottomX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+    chunk[chunkSize - 1][exitBottomX] = 0;
+
     return chunk;
   }
 
@@ -60,7 +82,6 @@
     return `${cx},${cy}`;
   }
 
-  // Загружаем чанки вокруг игрока
   function loadChunksAroundPlayer() {
     let playerChunkX = Math.floor(player.x / (tileSize * chunkSize));
     let playerChunkY = Math.floor(player.y / (tileSize * chunkSize));
@@ -75,20 +96,15 @@
     }
   }
 
-  // Проверка столкновения круга игрока с прямоугольником стены
   function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
     const nearestX = Math.max(rx, Math.min(cx, rx + rw));
     const nearestY = Math.max(ry, Math.min(cy, ry + rh));
-
     const dx = cx - nearestX;
     const dy = cy - nearestY;
-
     return (dx * dx + dy * dy) < (radius * radius);
   }
 
-  // Проверка можно ли двигаться в точку (x,y)
   function canMoveTo(x, y) {
-    // Проверяем столкновения со всеми стенами загруженных чанков
     for (const key in loadedChunks) {
       let [cx, cy] = key.split(',').map(Number);
       let chunk = loadedChunks[key];
@@ -108,7 +124,7 @@
     return true;
   }
 
-  // Рисуем чанки относительно камеры (центр камеры = игрок)
+  // Рисуем только линии (рамки) без заливки
   function drawChunks() {
     const camX = player.x - canvas.width / 2;
     const camY = player.y - canvas.height / 2;
@@ -123,8 +139,8 @@
       for (let y = 0; y < chunkSize; y++) {
         for (let x = 0; x < chunkSize; x++) {
           if (chunk[y][x] === 1) {
-            let px = (cx * chunkSize + x) * tileSize - camX;
-            let py = (cy * chunkSize + y) * tileSize - camY;
+            const px = (cx * chunkSize + x) * tileSize - camX;
+            const py = (cy * chunkSize + y) * tileSize - camY;
 
             ctx.strokeRect(px, py, tileSize, tileSize);
           }
@@ -133,7 +149,6 @@
     }
   }
 
-  // Рисуем игрока в центре экрана
   function drawPlayer() {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
@@ -144,7 +159,6 @@
     ctx.fill();
   }
 
-  // Обновление позиции игрока с коллизиями
   function update() {
     let nextX = player.x;
     let nextY = player.y;
@@ -160,13 +174,11 @@
     loadChunksAroundPlayer();
   }
 
-  // Основной цикл
   function loop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawChunks();
     drawPlayer();
     update();
-
     requestAnimationFrame(loop);
   }
 
