@@ -3,178 +3,183 @@
 <head>
   <meta charset="UTF-8" />
   <title>Knoxera</title>
-  <link rel="icon" type="image/png" href="knoxeralogo.png">
-
-  <meta property="og:title" content="Knoxera" />
-  <meta property="og:image" content="https://knoxera.site/knoxeralogo.png" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-
   <style>
     body {
-      margin: 0; 
-      background: black; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      height: 100vh;
+      margin: 0;
+      background: black;
       overflow: hidden;
     }
     canvas {
-      background: black;
       display: block;
+      background: black;
     }
   </style>
 </head>
 <body>
-  <canvas id="game" width="640" height="480"></canvas>
+<canvas id="game" width="640" height="480"></canvas>
 
-  <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+<script>
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
 
-    const tileSize = 40;  
-    const map = [
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
-      [1,0,1,1,1,0,0,1,0,1,0,1,0,1,0,1],
-      [1,0,1,0,0,0,1,1,0,1,0,0,0,1,0,1],
-      [1,0,1,0,1,0,0,0,0,1,1,1,0,1,0,1],
-      [1,0,0,0,1,0,1,1,0,0,0,1,0,0,0,1],
-      [1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    ];
+  const tileSize = 40;
+  const chunkSize = 8; // 8x8 клеток на чанк
+  const viewChunksRadius = 2; // сколько чанков рисуем вокруг игрока
 
-    const player = {
-      x: tileSize * 1.5,
-      y: tileSize * 1.5,
-      radius: tileSize / 3,
-      speed: 2.5
-    };
+  // Игрок
+  const player = {
+    x: tileSize * 1.5,
+    y: tileSize * 1.5,
+    radius: tileSize / 3,
+    speed: 2.5
+  };
 
-    const keys = { w:false, a:false, s:false, d:false };
+  const keys = { w:false, a:false, s:false, d:false };
 
-    // Рисуем стены как цельные линии без разрывов
-    function drawMap() {
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
+  // Загруженные чанки в формате { "cx,cy": chunk }
+  const loadedChunks = {};
 
-      // Горизонтальные линии
-      for (let y = 0; y <= map.length; y++) {
-        let startX = null;
-        for (let x = 0; x < map[0].length; x++) {
-          const above = (y > 0 && map[y-1][x] === 1);
-          const below = (y < map.length && map[y] && map[y][x] === 1);
-
-          if (above !== below) {
-            if (startX === null) startX = x;
-          } else {
-            if (startX !== null) {
-              ctx.moveTo(startX * tileSize, y * tileSize);
-              ctx.lineTo(x * tileSize, y * tileSize);
-              startX = null;
-            }
-          }
-        }
-        if (startX !== null) {
-          ctx.moveTo(startX * tileSize, y * tileSize);
-          ctx.lineTo(map[0].length * tileSize, y * tileSize);
+  // Генерация чанка с границами и случайными стенами внутри
+  function generateChunk(cx, cy) {
+    let chunk = [];
+    for (let y = 0; y < chunkSize; y++) {
+      let row = [];
+      for (let x = 0; x < chunkSize; x++) {
+        if (x === 0 || y === 0 || x === chunkSize - 1 || y === chunkSize - 1) {
+          row.push(1); // стены по границе чанка
+        } else {
+          row.push(Math.random() < 0.1 ? 1 : 0); // случайные стены 10%
         }
       }
+      chunk.push(row);
+    }
+    return chunk;
+  }
 
-      // Вертикальные линии
-      for (let x = 0; x <= map[0].length; x++) {
-        let startY = null;
-        for (let y = 0; y < map.length; y++) {
-          const left = (x > 0 && map[y][x-1] === 1);
-          const right = (x < map[0].length && map[y][x] === 1);
+  function getChunkKey(cx, cy) {
+    return `${cx},${cy}`;
+  }
 
-          if (left !== right) {
-            if (startY === null) startY = y;
-          } else {
-            if (startY !== null) {
-              ctx.moveTo(x * tileSize, startY * tileSize);
-              ctx.lineTo(x * tileSize, y * tileSize);
-              startY = null;
-            }
-          }
-        }
-        if (startY !== null) {
-          ctx.moveTo(x * tileSize, startY * tileSize);
-          ctx.lineTo(x * tileSize, map.length * tileSize);
+  // Загружаем чанки вокруг игрока
+  function loadChunksAroundPlayer() {
+    let playerChunkX = Math.floor(player.x / (tileSize * chunkSize));
+    let playerChunkY = Math.floor(player.y / (tileSize * chunkSize));
+
+    for (let cy = playerChunkY - viewChunksRadius; cy <= playerChunkY + viewChunksRadius; cy++) {
+      for (let cx = playerChunkX - viewChunksRadius; cx <= playerChunkX + viewChunksRadius; cx++) {
+        let key = getChunkKey(cx, cy);
+        if (!loadedChunks[key]) {
+          loadedChunks[key] = generateChunk(cx, cy);
         }
       }
-
-      ctx.stroke();
     }
+  }
 
-    // Проверка столкновения круга игрока со стенами (прямоугольниками)
-    function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
-      const nearestX = Math.max(rx, Math.min(cx, rx + rw));
-      const nearestY = Math.max(ry, Math.min(cy, ry + rh));
-      const dx = cx - nearestX;
-      const dy = cy - nearestY;
-      return (dx * dx + dy * dy) < (radius * radius);
-    }
+  // Проверка столкновения круга игрока с прямоугольником стены
+  function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
+    const nearestX = Math.max(rx, Math.min(cx, rx + rw));
+    const nearestY = Math.max(ry, Math.min(cy, ry + rh));
 
-    // Проверяем можно ли двигаться на позицию (x,y)
-    function canMoveTo(x, y) {
-      for (let yIndex = 0; yIndex < map.length; yIndex++) {
-        for (let xIndex = 0; xIndex < map[yIndex].length; xIndex++) {
-          if (map[yIndex][xIndex] === 1) {
-            if (circleRectCollision(x, y, player.radius,
-              xIndex * tileSize, yIndex * tileSize,
-              tileSize, tileSize)) {
+    const dx = cx - nearestX;
+    const dy = cy - nearestY;
+
+    return (dx * dx + dy * dy) < (radius * radius);
+  }
+
+  // Проверка можно ли двигаться в точку (x,y)
+  function canMoveTo(x, y) {
+    // Проверяем столкновения со всеми стенами загруженных чанков
+    for (const key in loadedChunks) {
+      let [cx, cy] = key.split(',').map(Number);
+      let chunk = loadedChunks[key];
+
+      for (let yy = 0; yy < chunkSize; yy++) {
+        for (let xx = 0; xx < chunkSize; xx++) {
+          if (chunk[yy][xx] === 1) {
+            let wallX = (cx * chunkSize + xx) * tileSize;
+            let wallY = (cy * chunkSize + yy) * tileSize;
+            if (circleRectCollision(x, y, player.radius, wallX, wallY, tileSize, tileSize)) {
               return false;
             }
           }
         }
       }
-      return true;
     }
+    return true;
+  }
 
-    // Рисуем игрока — голубой кружок
-    function drawPlayer() {
-      ctx.fillStyle = '#4cc9f0';
-      ctx.beginPath();
-      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-      ctx.fill();
+  // Рисуем чанки относительно камеры (центр камеры = игрок)
+  function drawChunks() {
+    const camX = player.x - canvas.width / 2;
+    const camY = player.y - canvas.height / 2;
+
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+
+    for (const key in loadedChunks) {
+      let [cx, cy] = key.split(',').map(Number);
+      let chunk = loadedChunks[key];
+
+      for (let y = 0; y < chunkSize; y++) {
+        for (let x = 0; x < chunkSize; x++) {
+          if (chunk[y][x] === 1) {
+            let px = (cx * chunkSize + x) * tileSize - camX;
+            let py = (cy * chunkSize + y) * tileSize - camY;
+
+            ctx.strokeRect(px, py, tileSize, tileSize);
+          }
+        }
+      }
     }
+  }
 
-    // Обновляем позицию игрока, если нет столкновений
-    function update() {
-      let nextX = player.x;
-      let nextY = player.y;
+  // Рисуем игрока в центре экрана
+  function drawPlayer() {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-      if (keys.w) nextY -= player.speed;
-      if (keys.s) nextY += player.speed;
-      if (keys.a) nextX -= player.speed;
-      if (keys.d) nextX += player.speed;
+    ctx.fillStyle = '#4cc9f0';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
-      if (canMoveTo(nextX, player.y)) player.x = nextX;
-      if (canMoveTo(player.x, nextY)) player.y = nextY;
-    }
+  // Обновление позиции игрока с коллизиями
+  function update() {
+    let nextX = player.x;
+    let nextY = player.y;
 
-    // Главный цикл игры
-    function loop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawMap();
-      drawPlayer();
-      update();
-      requestAnimationFrame(loop);
-    }
+    if (keys.w) nextY -= player.speed;
+    if (keys.s) nextY += player.speed;
+    if (keys.a) nextX -= player.speed;
+    if (keys.d) nextX += player.speed;
 
-    // Обработчики нажатий клавиш
-    window.addEventListener('keydown', e => {
-      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-    });
-    window.addEventListener('keyup', e => {
-      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
-    });
+    if (canMoveTo(nextX, player.y)) player.x = nextX;
+    if (canMoveTo(player.x, nextY)) player.y = nextY;
 
-    loop();
-  </script>
+    loadChunksAroundPlayer();
+  }
+
+  // Основной цикл
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawChunks();
+    drawPlayer();
+    update();
+
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+  });
+
+  window.addEventListener('keyup', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+  });
+
+  loadChunksAroundPlayer();
+  loop();
+</script>
 </body>
 </html>
