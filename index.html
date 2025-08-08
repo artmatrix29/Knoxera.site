@@ -1,387 +1,123 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8" />
-<title>2D бродилка — линии, улучшенные хитбоксы и генерация</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8">
+<title>2D Бродилка</title>
 <style>
-  html,body { height: 100%; margin: 0; background: black; }
-  #game-wrap { width: 100%; height: 100%; display:flex; align-items:center; justify-content:center; }
-  canvas { background: black; max-width:100%; max-height:100%; display:block; }
-  #info {
-    position: absolute; left: 12px; top: 12px; color: rgba(255,255,255,0.9); font-family: monospace; font-size:13px;
-    background: rgba(0,0,0,0.35); padding:8px 10px; border-radius:6px;
-  }
+    body {
+        margin: 0;
+        background: black;
+        overflow: hidden;
+    }
+    canvas {
+        display: block;
+    }
 </style>
 </head>
 <body>
-<div id="game-wrap">
-  <canvas id="game"></canvas>
-</div>
-<div id="info">W A S D — ходить • Esc очистить кеш чанков</div>
-
+<canvas id="game"></canvas>
 <script>
-/* =========== Параметры =========== */
-const tileSize = 40;              // размер клетки в пикселях
-const CHUNK_W = 16;               // ширина чанка в тайлах
-const CHUNK_H = 12;               // высота чанка в тайлах
-const lineWidth = 6;              // толщина линии стен (рисуется)
-const halfLine = lineWidth/2;
-const collisionEpsilon = 1.2;     // уменьшение "эффективной" толщины для облегчения проходов (пиксели)
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-/* =========== Размер канваса под окно =========== */
-function resizeCanvas() {
-  canvas.width = Math.floor(Math.min(window.innerWidth, 1280));
-  canvas.height = Math.floor(Math.min(window.innerHeight, 720));
-}
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-/* =========== Игрок и камера (центрирование) =========== */
-const player = {
-  x: tileSize * 1.5,       // мировые координаты (пиксели)
-  y: tileSize * 1.5,
-  radius: tileSize / 3,
-  speed: 2.6
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+// Игрок
+let player = {
+    x: 100,
+    y: 100,
+    radius: 10,
+    speed: 2,
+    color: "cyan"
 };
-let camX = 0, camY = 0;    // смещение камеры в пикселях (отрисовка - world -> screen)
 
-/* =========== Ввод =========== */
-const keys = { w:false, a:false, s:false, d:false };
-window.addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  if (k in keys) keys[k] = true;
-  if (e.key === 'Escape') {
-    chunkCache = {}; buildVisibleSegmentsNeeded = true; // сброс чанков
-  }
-});
-window.addEventListener('keyup', e => {
-  const k = e.key.toLowerCase();
-  if (k in keys) keys[k] = false;
-});
+// Карта (стены как линии)
+let walls = [
+    {x1: 0, y1: 0, x2: 400, y2: 0},     // верхняя
+    {x1: 400, y1: 0, x2: 400, y2: 400}, // правая
+    {x1: 400, y1: 400, x2: 0, y2: 400}, // нижняя
+    {x1: 0, y1: 400, x2: 0, y2: 0},     // левая
+    {x1: 150, y1: 0, x2: 150, y2: 300}, // вертикальная внутренняя
+    {x1: 150, y1: 300, x2: 300, y2: 300} // горизонтальная внутренняя
+];
 
-/* =========== Система чанков (детерминированный RNG) =========== */
-const chunkCache = {}; // ключ "cx,cy" => {grid:[][]}
-function hashSeed(a,b){
-  // простая хеш-функция для генерации seed по координатам чанка
-  let h = a*374761393 ^ b*668265263;
-  h = (h ^ (h >>> 13)) >>> 0;
-  return h;
-}
-function mulberry32(a){
-  return function(){
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ a >>> 15, 1 | a);
-    t = (t + Math.imul(t ^ t >>> 7, 61 | t)) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  }
-}
-function generateChunk(cx, cy){
-  const key = `${cx},${cy}`;
-  if (chunkCache[key]) return chunkCache[key];
-  const seed = hashSeed(cx, cy) ^ 0x9E3779B1;
-  const rng = mulberry32(seed);
+// Камера
+let camera = { x: 0, y: 0 };
 
-  // создаём сетку CHUNK_H x CHUNK_W
-  let grid = Array.from({length:CHUNK_H}, ()=>Array(CHUNK_W).fill(0));
-  // начальная шумовая застройка
-  for (let y=0;y<CHUNK_H;y++){
-    for (let x=0;x<CHUNK_W;x++){
-      // внешние границы — всегда стены (помогают соединять чанки)
-      if (x===0 || y===0 || x===CHUNK_W-1 || y===CHUNK_H-1){
-        grid[y][x] = 1;
-      } else {
-        grid[y][x] = (rng() < 0.46) ? 1 : 0; // стартовая плотность стен
-      }
-    }
-  }
+// Функция для проверки столкновений с линиями
+function checkCollision(newX, newY) {
+    for (let w of walls) {
+        let dx = w.x2 - w.x1;
+        let dy = w.y2 - w.y1;
+        let lengthSquared = dx*dx + dy*dy;
+        let t = ((newX - w.x1) * dx + (newY - w.y1) * dy) / lengthSquared;
+        t = Math.max(0, Math.min(1, t));
 
-  // Несколько итераций "сглаживания" (cellular automata)
-  for (let it=0; it<3; it++){
-    const copy = grid.map(row => row.slice());
-    for (let y=1;y<CHUNK_H-1;y++){
-      for (let x=1;x<CHUNK_W-1;x++){
-        let count = 0;
-        for (let oy=-1; oy<=1; oy++){
-          for (let ox=-1; ox<=1; ox++){
-            if (oy===0 && ox===0) continue;
-            if (grid[y+oy][x+ox] === 1) count++;
-          }
+        let closestX = w.x1 + t * dx;
+        let closestY = w.y1 + t * dy;
+
+        let distX = newX - closestX;
+        let distY = newY - closestY;
+        let distance = Math.sqrt(distX * distX + distY * distY);
+
+        if (distance < player.radius) {
+            return true;
         }
-        copy[y][x] = (count >= 5) ? 1 : 0;
-      }
     }
-    grid = copy;
-  }
-
-  // Обеспечим проходы у центра каждой грани (чтобы чанки могли соединяться)
-  const mx = Math.floor(CHUNK_W/2);
-  const my = Math.floor(CHUNK_H/2);
-  if (rng() > 0.2) grid[0+1][mx] = 0;                      // верхняя граница (внутри)
-  if (rng() > 0.2) grid[CHUNK_H-2][mx] = 0;               // нижняя
-  if (rng() > 0.2) grid[my][0+1] = 0;                     // левая
-  if (rng() > 0.2) grid[my][CHUNK_W-2] = 0;               // правая
-
-  // кэшируем
-  chunkCache[key] = { grid };
-  return chunkCache[key];
+    return false;
 }
 
-/* Получить значение тайла мира по индексу тайла (tileX, tileY) */
-function getTileAtTile(tileX, tileY){
-  const cx = Math.floor(tileX / CHUNK_W);
-  const cy = Math.floor(tileY / CHUNK_H);
-  const localX = ((tileX % CHUNK_W) + CHUNK_W) % CHUNK_W;
-  const localY = ((tileY % CHUNK_H) + CHUNK_H) % CHUNK_H;
-  const chunk = generateChunk(cx, cy);
-  return chunk.grid[localY][localX];
+function update() {
+    let moveX = 0;
+    let moveY = 0;
+    if (keys["w"]) moveY -= player.speed;
+    if (keys["s"]) moveY += player.speed;
+    if (keys["a"]) moveX -= player.speed;
+    if (keys["d"]) moveX += player.speed;
+
+    let newX = player.x + moveX;
+    let newY = player.y + moveY;
+
+    if (!checkCollision(newX, player.y)) player.x = newX;
+    if (!checkCollision(player.x, newY)) player.y = newY;
+
+    // Камера всегда центрирует игрока
+    camera.x = player.x - canvas.width / 2;
+    camera.y = player.y - canvas.height / 2;
 }
 
-/* =========== Генерация видимых сегментов (линии) =========== */
-let wallSegments = []; // сегменты в мировых пикселях
-let buildVisibleSegmentsNeeded = true;
-let lastCenterTile = {x:null,y:null};
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-function buildVisibleSegments(){
-  // вычислим видимую область в тайлах с запасом
-  const colsOnScreen = Math.ceil(canvas.width / tileSize) + 6;
-  const rowsOnScreen = Math.ceil(canvas.height / tileSize) + 6;
-  const centerTileX = Math.floor(player.x / tileSize);
-  const centerTileY = Math.floor(player.y / tileSize);
-
-  if (centerTileX === lastCenterTile.x && centerTileY === lastCenterTile.y && !buildVisibleSegmentsNeeded) return;
-  lastCenterTile.x = centerTileX; lastCenterTile.y = centerTileY;
-  buildVisibleSegmentsNeeded = false;
-
-  const startTileX = centerTileX - Math.floor(colsOnScreen/2);
-  const startTileY = centerTileY - Math.floor(rowsOnScreen/2);
-  const endTileX = startTileX + colsOnScreen;
-  const endTileY = startTileY + rowsOnScreen;
-
-  // соберём локальную сетку
-  const localW = endTileX - startTileX + 1;
-  const localH = endTileY - startTileY + 1;
-  const localGrid = Array.from({length:localH}, ()=>Array(localW).fill(0));
-  for (let y=0; y<localH; y++){
-    for (let x=0; x<localW; x++){
-      const tx = startTileX + x;
-      const ty = startTileY + y;
-      localGrid[y][x] = getTileAtTile(tx, ty);
-    }
-  }
-
-  // строим сегменты (как раньше) — но в мировых пикселях
-  wallSegments = [];
-  const rows = localH, cols = localW;
-  // горизонтальные ребра
-  for (let y = 0; y < rows; y++) {
-    // верхнее ребро клетки y (между y-1 и y)
-    let x = 0;
-    while (x < cols) {
-      if (localGrid[y][x] === 1 && (y === 0 || localGrid[y-1][x] === 0)) {
-        let start = x;
-        while (x + 1 < cols && localGrid[y][x+1] === 1 && (y === 0 || localGrid[y-1][x+1] === 0)) x++;
-        wallSegments.push({
-          x1: (start + startTileX) * tileSize,
-          y1: (y + startTileY) * tileSize,
-          x2: (x + 1 + startTileX) * tileSize,
-          y2: (y + startTileY) * tileSize
-        });
-      }
-      x++;
-    }
-
-    // нижнее ребро
-    x = 0;
-    while (x < cols) {
-      if (localGrid[y][x] === 1 && (y === rows - 1 || localGrid[y+1][x] === 0)) {
-        let start = x;
-        while (x + 1 < cols && localGrid[y][x+1] === 1 && (y === rows - 1 || localGrid[y+1][x+1] === 0)) x++;
-        wallSegments.push({
-          x1: (start + startTileX) * tileSize,
-          y1: (y + 1 + startTileY) * tileSize,
-          x2: (x + 1 + startTileX) * tileSize,
-          y2: (y + 1 + startTileY) * tileSize
-        });
-      }
-      x++;
-    }
-  }
-
-  // вертикальные рёбра
-  for (let x = 0; x < cols; x++) {
-    let y = 0;
-    while (y < rows) {
-      if (localGrid[y][x] === 1 && (x === 0 || localGrid[y][x-1] === 0)) {
-        let start = y;
-        while (y + 1 < rows && localGrid[y+1][x] === 1 && (x === 0 || localGrid[y+1][x-1] === 0)) y++;
-        wallSegments.push({
-          x1: (x + startTileX) * tileSize,
-          y1: (start + startTileY) * tileSize,
-          x2: (x + startTileX) * tileSize,
-          y2: (y + 1 + startTileY) * tileSize
-        });
-      }
-      y++;
-    }
-
-    y = 0;
-    while (y < rows) {
-      if (localGrid[y][x] === 1 && (x === cols - 1 || localGrid[y][x+1] === 0)) {
-        let start = y;
-        while (y + 1 < rows && localGrid[y+1][x] === 1 && (x === cols - 1 || localGrid[y+1][x+1] === 0)) y++;
-        wallSegments.push({
-          x1: (x + 1 + startTileX) * tileSize,
-          y1: (start + startTileY) * tileSize,
-          x2: (x + 1 + startTileX) * tileSize,
-          y2: (y + 1 + startTileY) * tileSize
-        });
-      }
-      y++;
-    }
-  }
-}
-
-/* расстояние^2 от точки до отрезка */
-function pointToSegmentDist2(px, py, x1, y1, x2, y2) {
-  const vx = x2 - x1;
-  const vy = y2 - y1;
-  const wx = px - x1;
-  const wy = py - y1;
-  const len2 = vx*vx + vy*vy;
-  if (len2 === 0) {
-    const dx = px - x1, dy = py - y1;
-    return dx*dx + dy*dy;
-  }
-  let t = (wx*vx + wy*vy) / len2;
-  if (t < 0) t = 0;
-  else if (t > 1) t = 1;
-  const cx = x1 + t * vx;
-  const cy = y1 + t * vy;
-  const dx = px - cx, dy = py - cy;
-  return dx*dx + dy*dy;
-}
-
-/* Проверка столкновения круга с сегментами.
-   Мы уменьшаем "эффект" толщины стены на collisionEpsilon пикселей,
-   чтобы узкие проходы не залипали (визуально стены остаются такими же). */
-function circleHitsWall(cx, cy, r) {
-  const threshold = r + halfLine - collisionEpsilon;
-  const threshold2 = threshold * threshold;
-  for (let seg of wallSegments) {
-    const d2 = pointToSegmentDist2(cx, cy, seg.x1, seg.y1, seg.x2, seg.y2);
-    if (d2 <= threshold2) return true;
-  }
-  return false;
-}
-
-/* =========== Движение: субшаги + попытки "подстроиться" =========== */
-function movePlayer(){
-  let dx = 0, dy = 0;
-  if (keys.w) dy -= player.speed;
-  if (keys.s) dy += player.speed;
-  if (keys.a) dx -= player.speed;
-  if (keys.d) dx += player.speed;
-  if (dx === 0 && dy === 0) return;
-
-  // нормализация диагонали
-  if (dx !== 0 && dy !== 0) {
-    const inv = 1/Math.sqrt(2);
-    dx *= inv; dy *= inv;
-  }
-
-  // разбиваем на субшаги (чтобы не "проскочить" сквозь стену при высокой скорости)
-  const maxStep = Math.max(Math.abs(dx), Math.abs(dy));
-  const steps = Math.min(8, Math.max(1, Math.ceil(maxStep / (player.radius * 0.25))));
-  let moved = false;
-  for (let s=0; s<steps; s++){
-    const sx = dx * (1/steps);
-    const sy = dy * (1/steps);
-    // сначала пробуем полный шаг
-    if (!circleHitsWall(player.x + sx, player.y + sy, player.radius)) {
-      player.x += sx; player.y += sy; moved = true;
-    } else {
-      // попытка по осям (скольжение)
-      if (!circleHitsWall(player.x + sx, player.y, player.radius)) {
-        player.x += sx; moved = true;
-      } else if (!circleHitsWall(player.x, player.y + sy, player.radius)) {
-        player.y += sy; moved = true;
-      } else {
-        // пробуем небольшие угловые ньюансы (ищем ближайший свободный маленький вектор)
-        const maxTry = 6;
-        let found = false;
-        for (let t=1; t<=maxTry && !found; t++){
-          const angleStep = 15 * (Math.PI/180);
-          for (let sign of [1,-1]){
-            const ang = Math.atan2(sy, sx) + sign * t * angleStep;
-            const tx = Math.cos(ang) * (Math.hypot(sx,sy)/Math.max(1,t));
-            const ty = Math.sin(ang) * (Math.hypot(sx,sy)/Math.max(1,t));
-            if (!circleHitsWall(player.x + tx, player.y + ty, player.radius)) {
-              player.x += tx; player.y += ty; found = true; moved = true; break;
-            }
-          }
-        }
-        if (!found) {
-          // останавливамся на этом субшаге
-        }
-      }
-    }
-  }
-
-  if (moved) {
-    buildVisibleSegmentsNeeded = true; // если сместились — можно пересчитать видимые сегменты
-  }
-}
-
-/* =========== Отрисовка =========== */
-function draw(){
-  ctx.clearRect(0,0,canvas.width, canvas.height);
-
-  // камера центрируется на игроке
-  camX = player.x - canvas.width/2;
-  camY = player.y - canvas.height/2;
-
-  // строим видимые сегменты (если нужно)
-  buildVisibleSegments();
-
-  // рисуем сегменты (стены)
-  ctx.save();
-  ctx.translate(-camX, -camY);
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = lineWidth;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (let s of wallSegments){
+    // Рисуем стены
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(s.x1, s.y1);
-    ctx.lineTo(s.x2, s.y2);
+    for (let w of walls) {
+        ctx.moveTo(w.x1 - camera.x, w.y1 - camera.y);
+        ctx.lineTo(w.x2 - camera.x, w.y2 - camera.y);
+    }
     ctx.stroke();
-  }
 
-  // игрок
-  ctx.fillStyle = '#66d9ff';
-  ctx.beginPath();
-  ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2);
-  ctx.fill();
-  ctx.restore();
+    // Рисуем игрока
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.arc(player.x - camera.x, player.y - camera.y, player.radius, 0, Math.PI * 2);
+    ctx.fill();
 }
 
-/* =========== Основной цикл =========== */
-function loop(){
-  movePlayer();
-  draw();
-  requestAnimationFrame(loop);
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
 }
-loop();
 
-/* =========== Полезные функции для дебага (опционально) =========== */
-window.showSegments = () => console.log('segments', wallSegments.length);
-window.clearChunks = () => { for (let k in chunkCache) delete chunkCache[k]; buildVisibleSegmentsNeeded = true; };
-
-/* =========== Небольшая подсказка для удобства */ 
-// Нажми Esc чтобы очистить кеш чанков (сгенерируется заново).
+gameLoop();
 
 </script>
 </body>
