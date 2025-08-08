@@ -3,195 +3,244 @@
 <head>
   <meta charset="UTF-8" />
   <title>Knoxera</title>
+  <link rel="icon" type="image/png" href="knoxeralogo.png" />
+  <meta property="og:title" content="Knoxera" />
+  <meta property="og:image" content="https://knoxera.site/knoxeralogo.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
   <style>
-    html, body {
-      margin: 0; padding: 0; height: 100%;
+    body {
+      margin: 0;
       background: black;
       overflow: hidden;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      user-select: none;
+    }
+    #header {
+      display: flex;
+      align-items: center;
+      margin: 10px;
+      gap: 10px;
+    }
+    #header img {
+      height: 40px;
+      width: 40px;
+      border-radius: 50%;
+    }
+    #header h1 {
+      margin: 0;
+      font-weight: normal;
     }
     canvas {
       background: black;
       display: block;
+      border: 1px solid white;
     }
   </style>
 </head>
 <body>
-<canvas id="game" width="640" height="480"></canvas>
 
-<script>
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  <div id="header">
+    <img src="knoxeralogo.png" alt="Knoxera Logo" />
+    <h1>Knoxera</h1>
+  </div>
 
-  const tileSize = 40;
-  const chunkSize = 8; 
-  const viewChunksRadius = 2;
+  <canvas id="game" width="640" height="480"></canvas>
 
-  const player = {
-    x: tileSize * 1.5,
-    y: tileSize * 1.5,
-    radius: tileSize / 3,
-    speed: 2.5
-  };
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
 
-  const keys = { w:false, a:false, s:false, d:false };
+    const tileSize = 40;
+    const chunkSize = 16; // размер чанка 16x16
 
-  const loadedChunks = {};
+    // Хранилище чанков (ключ: "cx,cy")
+    const chunks = new Map();
 
-  // Генерация чанка с минимум одним выходом на каждой стороне
-  function generateChunk(cx, cy) {
-    let chunk = [];
-    for (let y = 0; y < chunkSize; y++) {
-      let row = [];
-      for (let x = 0; x < chunkSize; x++) {
-        // стены по границе
-        if (x === 0 || y === 0 || x === chunkSize - 1 || y === chunkSize - 1) {
-          row.push(1);
-        } else {
-          row.push(Math.random() < 0.1 ? 1 : 0);
+    // Игрок, позиция в мировых координатах
+    const player = {
+      x: tileSize * 1.5,
+      y: tileSize * 1.5,
+      radius: tileSize / 3,
+      speed: 3,
+    };
+
+    // Управление
+    const keys = { w: false, a: false, s: false, d: false };
+
+    // Генерация чанка с неполными стенами и проходами
+    function generateChunk(cx, cy) {
+      let chunk = [];
+      for (let y = 0; y < chunkSize; y++) {
+        let row = [];
+        for (let x = 0; x < chunkSize; x++) {
+          // Внутренности чанка — стены с вероятностью 10%
+          if (x > 0 && y > 0 && x < chunkSize - 1 && y < chunkSize - 1) {
+            row.push(Math.random() < 0.1 ? 1 : 0);
+          } else {
+            // По краям — стены с вероятностью 50%
+            row.push(Math.random() < 0.5 ? 1 : 0);
+          }
         }
+        chunk.push(row);
       }
-      chunk.push(row);
+      // Проходы на краях чанка с вероятностью 60%
+      if (Math.random() < 0.6) {
+        const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+        chunk[exitLeftY][0] = 0;
+      }
+      if (Math.random() < 0.6) {
+        const exitRightY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+        chunk[exitRightY][chunkSize - 1] = 0;
+      }
+      if (Math.random() < 0.6) {
+        const exitTopX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+        chunk[0][exitTopX] = 0;
+      }
+      if (Math.random() < 0.6) {
+        const exitBottomX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
+        chunk[chunkSize - 1][exitBottomX] = 0;
+      }
+      return chunk;
     }
 
-    // Сделаем выходы (открытия) на границах чанка:
-    // для связности с соседними чанками на всех 4 сторонах
-
-    // Выход слева (x=0), случайный y между 1 и chunkSize-2
-    const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-    chunk[exitLeftY][0] = 0;
-
-    // Выход справа (x=chunkSize-1)
-    const exitRightY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-    chunk[exitRightY][chunkSize - 1] = 0;
-
-    // Выход сверху (y=0)
-    const exitTopX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-    chunk[0][exitTopX] = 0;
-
-    // Выход снизу (y=chunkSize-1)
-    const exitBottomX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-    chunk[chunkSize - 1][exitBottomX] = 0;
-
-    return chunk;
-  }
-
-  function getChunkKey(cx, cy) {
-    return `${cx},${cy}`;
-  }
-
-  function loadChunksAroundPlayer() {
-    let playerChunkX = Math.floor(player.x / (tileSize * chunkSize));
-    let playerChunkY = Math.floor(player.y / (tileSize * chunkSize));
-
-    for (let cy = playerChunkY - viewChunksRadius; cy <= playerChunkY + viewChunksRadius; cy++) {
-      for (let cx = playerChunkX - viewChunksRadius; cx <= playerChunkX + viewChunksRadius; cx++) {
-        let key = getChunkKey(cx, cy);
-        if (!loadedChunks[key]) {
-          loadedChunks[key] = generateChunk(cx, cy);
-        }
+    // Получить чанки для текущей позиции
+    function getChunk(cx, cy) {
+      const key = `${cx},${cy}`;
+      if (!chunks.has(key)) {
+        chunks.set(key, generateChunk(cx, cy));
       }
+      return chunks.get(key);
     }
-  }
 
-  function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
-    const nearestX = Math.max(rx, Math.min(cx, rx + rw));
-    const nearestY = Math.max(ry, Math.min(cy, ry + rh));
-    const dx = cx - nearestX;
-    const dy = cy - nearestY;
-    return (dx * dx + dy * dy) < (radius * radius);
-  }
+    // Проверка столкновения круга с прямоугольником
+    function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
+      const nearestX = Math.max(rx, Math.min(cx, rx + rw));
+      const nearestY = Math.max(ry, Math.min(cy, ry + rh));
+      const dx = cx - nearestX;
+      const dy = cy - nearestY;
+      return (dx * dx + dy * dy) < (radius * radius);
+    }
 
-  function canMoveTo(x, y) {
-    for (const key in loadedChunks) {
-      let [cx, cy] = key.split(',').map(Number);
-      let chunk = loadedChunks[key];
+    // Проверяем столкновения со всеми стенами в соседних чанках
+    function canMoveTo(x, y) {
+      const playerRadius = player.radius;
 
-      for (let yy = 0; yy < chunkSize; yy++) {
-        for (let xx = 0; xx < chunkSize; xx++) {
-          if (chunk[yy][xx] === 1) {
-            let wallX = (cx * chunkSize + xx) * tileSize;
-            let wallY = (cy * chunkSize + yy) * tileSize;
-            if (circleRectCollision(x, y, player.radius, wallX, wallY, tileSize, tileSize)) {
-              return false;
+      // Рассчитываем чанки рядом (всего 9 чанков вокруг игрока)
+      const cx = Math.floor(x / (tileSize * chunkSize));
+      const cy = Math.floor(y / (tileSize * chunkSize));
+
+      for (let ny = cy - 1; ny <= cy + 1; ny++) {
+        for (let nx = cx - 1; nx <= cx + 1; nx++) {
+          const chunk = getChunk(nx, ny);
+          for (let ty = 0; ty < chunkSize; ty++) {
+            for (let tx = 0; tx < chunkSize; tx++) {
+              if (chunk[ty][tx] === 1) {
+                // Глобальные координаты тайла
+                const wallX = nx * chunkSize * tileSize + tx * tileSize;
+                const wallY = ny * chunkSize * tileSize + ty * tileSize;
+
+                if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) {
+                  return false;
+                }
+              }
             }
           }
         }
       }
+      return true;
     }
-    return true;
-  }
 
-  // Рисуем только линии (рамки) без заливки
-  function drawChunks() {
-    const camX = player.x - canvas.width / 2;
-    const camY = player.y - canvas.height / 2;
+    // Рисуем стены одной линией (связанные сегменты)
+    function drawWalls() {
+      ctx.strokeStyle = 'white';
+      ctx.lineWidth = 2;
 
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
+      // Центр камеры на игроке
+      const camX = player.x - canvas.width / 2;
+      const camY = player.y - canvas.height / 2;
 
-    for (const key in loadedChunks) {
-      let [cx, cy] = key.split(',').map(Number);
-      let chunk = loadedChunks[key];
+      // Рассчитываем видимые чанки
+      const leftChunk = Math.floor(camX / (tileSize * chunkSize)) - 1;
+      const rightChunk = Math.floor((camX + canvas.width) / (tileSize * chunkSize)) + 1;
+      const topChunk = Math.floor(camY / (tileSize * chunkSize)) - 1;
+      const bottomChunk = Math.floor((camY + canvas.height) / (tileSize * chunkSize)) + 1;
 
-      for (let y = 0; y < chunkSize; y++) {
-        for (let x = 0; x < chunkSize; x++) {
-          if (chunk[y][x] === 1) {
-            const px = (cx * chunkSize + x) * tileSize - camX;
-            const py = (cy * chunkSize + y) * tileSize - camY;
+      ctx.beginPath();
 
-            ctx.strokeRect(px, py, tileSize, tileSize);
+      // Для всех чанков в зоне видимости
+      for (let cy = topChunk; cy <= bottomChunk; cy++) {
+        for (let cx = leftChunk; cx <= rightChunk; cx++) {
+          const chunk = getChunk(cx, cy);
+
+          // Проходим по каждой ячейке чанка
+          for (let y = 0; y < chunkSize; y++) {
+            for (let x = 0; x < chunkSize; x++) {
+              if (chunk[y][x] === 1) {
+                // Координаты стены на экране
+                const sx = cx * chunkSize * tileSize + x * tileSize - camX;
+                const sy = cy * chunkSize * tileSize + y * tileSize - camY;
+
+                // Рисуем контур блока — но не заполняем, просто линии границ
+                // Чтобы объединить линии, можно улучшить — но пока просто рисуем квадраты стен
+
+                ctx.moveTo(sx, sy);
+                ctx.lineTo(sx + tileSize, sy);
+                ctx.lineTo(sx + tileSize, sy + tileSize);
+                ctx.lineTo(sx, sy + tileSize);
+                ctx.closePath();
+              }
+            }
           }
         }
       }
+      ctx.stroke();
     }
-  }
 
-  function drawPlayer() {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    function drawPlayer() {
+      const camX = player.x - canvas.width / 2;
+      const camY = player.y - canvas.height / 2;
 
-    ctx.fillStyle = '#4cc9f0';
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, player.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
+      ctx.fillStyle = '#4cc9f0';
+      ctx.beginPath();
+      ctx.arc(player.x - camX, player.y - camY, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-  function update() {
-    let nextX = player.x;
-    let nextY = player.y;
+    function update() {
+      let nextX = player.x;
+      let nextY = player.y;
 
-    if (keys.w) nextY -= player.speed;
-    if (keys.s) nextY += player.speed;
-    if (keys.a) nextX -= player.speed;
-    if (keys.d) nextX += player.speed;
+      if (keys.w) nextY -= player.speed;
+      if (keys.s) nextY += player.speed;
+      if (keys.a) nextX -= player.speed;
+      if (keys.d) nextX += player.speed;
 
-    if (canMoveTo(nextX, player.y)) player.x = nextX;
-    if (canMoveTo(player.x, nextY)) player.y = nextY;
+      if (canMoveTo(nextX, player.y)) player.x = nextX;
+      if (canMoveTo(player.x, nextY)) player.y = nextY;
+    }
 
-    loadChunksAroundPlayer();
-  }
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawWalls();
+      drawPlayer();
+      update();
+      requestAnimationFrame(loop);
+    }
 
-  function loop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawChunks();
-    drawPlayer();
-    update();
-    requestAnimationFrame(loop);
-  }
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+    });
 
-  window.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-  });
-
-  window.addEventListener('keyup', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
-  });
-
-  loadChunksAroundPlayer();
-  loop();
-</script>
+    loop();
+  </script>
 </body>
 </html>
