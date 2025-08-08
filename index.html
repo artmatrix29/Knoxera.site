@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>2D Бродилка</title>
+<title>Ноксера</title>
 <style>
     body {
         margin: 0;
@@ -23,102 +23,89 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let keys = {};
-document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+const tileSize = 80;
 
-// Игрок
-let player = {
-    x: 100,
-    y: 100,
-    radius: 10,
-    speed: 2,
-    color: "cyan"
-};
-
-// Карта (стены как линии)
-let walls = [
-    {x1: 0, y1: 0, x2: 400, y2: 0},     // верхняя
-    {x1: 400, y1: 0, x2: 400, y2: 400}, // правая
-    {x1: 400, y1: 400, x2: 0, y2: 400}, // нижняя
-    {x1: 0, y1: 400, x2: 0, y2: 0},     // левая
-    {x1: 150, y1: 0, x2: 150, y2: 300}, // вертикальная внутренняя
-    {x1: 150, y1: 300, x2: 300, y2: 300} // горизонтальная внутренняя
+// Карта (0 - пусто, 1 - стена)
+const map = [
+    [1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,1],
+    [1,0,1,0,1,1,1,0,0,1],
+    [1,0,1,0,0,0,1,0,0,1],
+    [1,0,1,1,1,0,1,0,0,1],
+    [1,0,0,0,0,0,1,0,0,1],
+    [1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1],
 ];
 
-// Камера
-let camera = { x: 0, y: 0 };
+let player = {
+    x: tileSize * 1.5,
+    y: tileSize * 1.5,
+    radius: tileSize / 4,
+    speed: 3,
+    color: "#4cc9f0"
+};
 
-// Функция для проверки столкновений с линиями
-function checkCollision(newX, newY) {
-    for (let w of walls) {
-        let dx = w.x2 - w.x1;
-        let dy = w.y2 - w.y1;
-        let lengthSquared = dx*dx + dy*dy;
-        let t = ((newX - w.x1) * dx + (newY - w.y1) * dy) / lengthSquared;
-        t = Math.max(0, Math.min(1, t));
+let keys = { w:false, a:false, s:false, d:false };
+let camera = { x:0, y:0 };
 
-        let closestX = w.x1 + t * dx;
-        let closestY = w.y1 + t * dy;
-
-        let distX = newX - closestX;
-        let distY = newY - closestY;
-        let distance = Math.sqrt(distX * distX + distY * distY);
-
-        if (distance < player.radius) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function update() {
-    let moveX = 0;
-    let moveY = 0;
-    if (keys["w"]) moveY -= player.speed;
-    if (keys["s"]) moveY += player.speed;
-    if (keys["a"]) moveX -= player.speed;
-    if (keys["d"]) moveX += player.speed;
-
-    let newX = player.x + moveX;
-    let newY = player.y + moveY;
-
-    if (!checkCollision(newX, player.y)) player.x = newX;
-    if (!checkCollision(player.x, newY)) player.y = newY;
-
-    // Камера всегда центрирует игрока
-    camera.x = player.x - canvas.width / 2;
-    camera.y = player.y - canvas.height / 2;
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Рисуем стены
+function drawMap() {
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    for (let w of walls) {
-        ctx.moveTo(w.x1 - camera.x, w.y1 - camera.y);
-        ctx.lineTo(w.x2 - camera.x, w.y2 - camera.y);
+    for (let y = 0; y < map.length; y++) {
+        for (let x = 0; x < map[y].length; x++) {
+            if (map[y][x] === 1) {
+                ctx.rect(x * tileSize - camera.x, y * tileSize - camera.y, tileSize, tileSize);
+            }
+        }
     }
     ctx.stroke();
+}
 
-    // Рисуем игрока
+function drawPlayer() {
     ctx.fillStyle = player.color;
     ctx.beginPath();
     ctx.arc(player.x - camera.x, player.y - camera.y, player.radius, 0, Math.PI * 2);
     ctx.fill();
 }
 
-function gameLoop() {
-    update();
-    draw();
-    requestAnimationFrame(gameLoop);
+function canMoveTo(x, y) {
+    let gridX = Math.floor(x / tileSize);
+    let gridY = Math.floor(y / tileSize);
+    if (gridY < 0 || gridY >= map.length || gridX < 0 || gridX >= map[0].length) return false;
+    return map[gridY][gridX] === 0;
 }
 
-gameLoop();
+function update() {
+    let nextX = player.x;
+    let nextY = player.y;
 
+    if (keys.w) nextY -= player.speed;
+    if (keys.s) nextY += player.speed;
+    if (keys.a) nextX -= player.speed;
+    if (keys.d) nextX += player.speed;
+
+    if (canMoveTo(nextX + player.radius, player.y) && canMoveTo(nextX - player.radius, player.y)) player.x = nextX;
+    if (canMoveTo(player.x, nextY + player.radius) && canMoveTo(player.x, nextY - player.radius)) player.y = nextY;
+
+    // Камера следует за игроком
+    camera.x = player.x - canvas.width / 2;
+    camera.y = player.y - canvas.height / 2;
+}
+
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawMap();
+    drawPlayer();
+    update();
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown", e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
+window.addEventListener("keyup", e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
+
+loop();
 </script>
 </body>
 </html>
