@@ -4,11 +4,6 @@
   <meta charset="UTF-8" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
-  <meta property="og:title" content="Knoxera" />
-  <meta property="og:image" content="https://knoxera.site/knoxeralogo.png" />
-  <meta property="og:type" content="website" />
-  <meta name="twitter:card" content="summary_large_image" />
-
   <style>
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -43,19 +38,27 @@
       border: 1px solid white;
       flex-grow: 1;
       width: 100vw;
-      height: calc(100vh - 90px); /* минус шапка и отступ снизу */
-      margin-bottom: 20px; /* небольшой отступ снизу */
+      height: calc(100vh - 90px);
+      margin-bottom: 20px;
     }
     #counter {
       position: fixed;
       top: 10px;
       right: 20px;
-      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-weight: bold;
       user-select: none;
       color: #4cc9f0;
       text-shadow: 0 0 5px black;
       z-index: 10;
+      font-size: 20px;
+    }
+    #counter img {
+      width: 32px;
+      height: 32px;
+      image-rendering: pixelated;
     }
   </style>
 </head>
@@ -67,16 +70,19 @@
   </div>
 
   <canvas id="game"></canvas>
-  <div id="counter">Кристаллы: 0</div>
+  <div id="counter">
+    <img src="greencristal.png" alt="crystal" />
+    <span id="crystal-count">0</span>
+  </div>
 
   <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
-    const counter = document.getElementById('counter');
+    const counterNumber = document.getElementById('crystal-count');
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight - document.getElementById('header').offsetHeight - 20; // отступ снизу 20px
+      canvas.height = window.innerHeight - document.getElementById('header').offsetHeight - 20;
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -112,7 +118,6 @@
         chunk.push(row);
       }
 
-      // Проходы по краям
       if (Math.random() < 0.6) {
         const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
         chunk[exitLeftY][0] = 0;
@@ -130,7 +135,6 @@
         chunk[chunkSize - 1][exitBottomX] = 0;
       }
 
-      // Добавляем кристалл с вероятностью 15% в свободной точке
       if (Math.random() < 0.15) {
         let freeCells = [];
         for (let y = 1; y < chunkSize - 1; y++) {
@@ -192,7 +196,6 @@
       return true;
     }
 
-    // Спавн игрока в свободном месте (исключая стены)
     function spawnPlayer() {
       const chunk = getChunk(0, 0);
       for (let y = 1; y < chunkSize - 1; y++) {
@@ -251,7 +254,9 @@
       for (const [key, pos] of crystals) {
         const px = pos.x - camX;
         const py = pos.y - camY;
-        ctx.drawImage(crystalImage, px - tileSize/3, py - tileSize/3, tileSize * 2 / 3, tileSize * 2 / 3);
+        // увеличим размер кристаллов (например, в 1.5 раза)
+        const size = tileSize; // было ~ 2/3 от tileSize, теперь full tileSize
+        ctx.drawImage(crystalImage, px - size / 2, py - size / 2, size, size);
       }
     }
 
@@ -260,10 +265,10 @@
         const dx = player.x - pos.x;
         const dy = player.y - pos.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < player.radius + tileSize / 3) {
+        if (dist < player.radius + tileSize / 2) { // увеличенный радиус для сбора
           crystals.delete(key);
           crystalsCollected++;
-          counter.textContent = `Кристаллы: ${crystalsCollected}`;
+          counterNumber.textContent = crystalsCollected;
           break;
         }
       }
