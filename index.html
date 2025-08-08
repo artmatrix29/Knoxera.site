@@ -348,4 +348,137 @@
       for (let y = 1; y < chunkSize - 1; y++) {
         for (let x = 1; x < chunkSize - 1; x++) {
           if (chunk[y][x] === 0) {
-           
+            freeCells.push({x, y});
+          }
+        }
+      }
+      if (freeCells.length) {
+        const crystalCell = freeCells[Math.floor(Math.random() * freeCells.length)];
+        crystals.set(`${cx}_${cy}_${crystalCell.x}_${crystalCell.y}`, {cx, cy, x: crystalCell.x, y: crystalCell.y});
+      }
+    }
+
+    chunks.set(`${cx}_${cy}`, chunk);
+  }
+
+  function getChunk(cx, cy) {
+    if (!chunks.has(`${cx}_${cy}`)) {
+      generateChunk(cx, cy);
+    }
+    return chunks.get(`${cx}_${cy}`);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const playerChunkX = Math.floor(player.x / (chunkSize * tileSize));
+    const playerChunkY = Math.floor(player.y / (chunkSize * tileSize));
+
+    for (let cy = playerChunkY - 1; cy <= playerChunkY + 1; cy++) {
+      for (let cx = playerChunkX - 1; cx <= playerChunkX + 1; cx++) {
+        const chunk = getChunk(cx, cy);
+        if (!chunk) continue;
+        const offsetX = cx * chunkSize * tileSize;
+        const offsetY = cy * chunkSize * tileSize;
+
+        for (let y = 0; y < chunkSize; y++) {
+          for (let x = 0; x < chunkSize; x++) {
+            if (chunk[y][x] === 1) {
+              ctx.fillStyle = '#555';
+              ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize, tileSize);
+            }
+          }
+        }
+
+        // Кристаллы
+        for (const [key, c] of crystals) {
+          if (c.cx === cx && c.cy === cy) {
+            const cxPos = offsetX + c.x * tileSize + tileSize / 2;
+            const cyPos = offsetY + c.y * tileSize + tileSize / 2;
+            ctx.fillStyle = '#4cc9f0';
+            ctx.beginPath();
+            ctx.moveTo(cxPos, cyPos - 12);
+            ctx.lineTo(cxPos + 10, cyPos);
+            ctx.lineTo(cxPos, cyPos + 12);
+            ctx.lineTo(cxPos - 10, cyPos);
+            ctx.closePath();
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function canMove(x, y) {
+    const cx = Math.floor(x / (chunkSize * tileSize));
+    const cy = Math.floor(y / (chunkSize * tileSize));
+    const chunk = getChunk(cx, cy);
+    if (!chunk) return false;
+
+    const localX = Math.floor((x % (chunkSize * tileSize)) / tileSize);
+    const localY = Math.floor((y % (chunkSize * tileSize)) / tileSize);
+
+    if (localX < 0 || localX >= chunkSize || localY < 0 || localY >= chunkSize) return false;
+    return chunk[localY][localX] === 0;
+  }
+
+  function checkCrystalPickup() {
+    for (const [key, c] of crystals) {
+      const cxPos = c.cx * chunkSize * tileSize + c.x * tileSize + tileSize / 2;
+      const cyPos = c.cy * chunkSize * tileSize + c.y * tileSize + tileSize / 2;
+      const dist = Math.hypot(player.x - cxPos, player.y - cyPos);
+      if (dist < player.radius + 10) {
+        crystals.delete(key);
+        crystalsCollected++;
+        document.getElementById('crystal-count').textContent = crystalsCollected;
+      }
+    }
+  }
+
+  function update() {
+    let newX = player.x;
+    let newY = player.y;
+    if (keys.w) if(canMove(player.x, player.y - player.speed)) newY -= player.speed;
+    if (keys.s) if(canMove(player.x, player.y + player.speed)) newY += player.speed;
+    if (keys.a) if(canMove(player.x - player.speed, player.y)) newX -= player.speed;
+    if (keys.d) if(canMove(player.x + player.speed, player.y)) newX += player.speed;
+
+    player.x = newX;
+    player.y = newY;
+
+    checkCrystalPickup();
+    draw();
+    requestAnimationFrame(update);
+  }
+
+  function startGame() {
+    // Инициализация позиции игрока в центре экрана
+    player.x = window.innerWidth / 2;
+    player.y = window.innerHeight / 2;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 90;
+
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = true;
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', e => {
+      if (e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = false;
+        e.preventDefault();
+      }
+    });
+
+    update();
+  }
+
+</script>
+</body>
+</html>
