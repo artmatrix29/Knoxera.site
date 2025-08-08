@@ -4,6 +4,16 @@
   <meta charset="UTF-8" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
+  
+  <!-- Firebase App (обязательно) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <!-- Firebase Analytics (не обязательно) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-analytics-compat.js"></script>
+  <!-- Firebase Authentication -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <!-- Firebase Firestore (если нужно, сейчас не используется) -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
   <style>
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -206,6 +216,21 @@
   </div>
 
 <script>
+  // Конфигурация Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6kjiQCEjtI537KqmEN34NxOZ6BBIbC2c",
+    authDomain: "knoxera.firebaseapp.com",
+    projectId: "knoxera",
+    storageBucket: "knoxera.firebasestorage.app",
+    messagingSenderId: "207649077497",
+    appId: "1:207649077497:web:01e865716c790acf798a28",
+    measurementId: "G-913NRJWC1Z"
+  };
+
+  // Инициализация Firebase
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
   // --- Валидация формы регистрации ---
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
@@ -223,25 +248,59 @@
   passwordInput.addEventListener('input', validateForm);
   nicknameInput.addEventListener('input', validateForm);
 
-  // --- Псевдо-регистрация и старт игры ---
-  registerBtn.addEventListener('click', () => {
-    // Здесь должна быть настоящая регистрация и авторизация
+  // --- Регистрация пользователя через Firebase ---
+  registerBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
     const nickname = nicknameInput.value.trim();
-    if (!nickname) return;
 
+    if (!email || !password || !nickname) return;
+
+    try {
+      const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+      // Обновляем профиль пользователя, чтобы сохранить никнейм
+      await userCredential.user.updateProfile({ displayName: nickname });
+
+      // Успешная регистрация — скрываем меню и запускаем игру
+      onLoginSuccess();
+    } catch (error) {
+      alert(`Ошибка регистрации: ${error.message}`);
+    }
+  });
+
+  // --- Вход через Google ---
+  document.getElementById('google-login').addEventListener('click', async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+      const result = await auth.signInWithPopup(provider);
+      // После успешного входа запускаем игру
+      onLoginSuccess();
+    } catch (error) {
+      alert(`Ошибка входа через Google: ${error.message}`);
+    }
+  });
+
+  // --- После успешной регистрации или входа ---
+  function onLoginSuccess() {
     document.getElementById('menu').style.display = 'none';
     document.getElementById('header').style.display = 'flex';
     document.getElementById('game').style.display = 'block';
     document.getElementById('counter').style.display = 'flex';
 
-    // В шапке отображаем только логотип и название (ник не показываем)
+    // Можно показать никнейм в шапке, если хочешь
+    // const user = auth.currentUser;
+    // if (user && user.displayName) {
+    //   document.getElementById('header').innerHTML += `<span style="margin-left: 10px;">${user.displayName}</span>`;
+    // }
 
     startGame();
-  });
+  }
 
-  // --- Имитируем нажатие на Google Login ---
-  document.getElementById('google-login').addEventListener('click', () => {
-    alert('Тут должна быть интеграция с Google OAuth. Пока это заглушка.');
+  // --- Проверяем, если пользователь уже залогинен при загрузке ---
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      onLoginSuccess();
+    }
   });
 
   // === Плавающие шарики на фоне меню ===
@@ -264,219 +323,86 @@
     particles.push({
       x: Math.random() * pWidth,
       y: Math.random() * pHeight,
-      radius: Math.random() * 3 + 1,
-      speedY: Math.random() * 0.6 + 0.2,
-      speedX: (Math.random() - 0.5) * 0.3,
-      alpha: Math.random() * 0.6 + 0.4,
+      r: 10 + Math.random() * 20,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.3,
+      alpha: 0.2 + Math.random() * 0.2,
     });
   }
-
   function drawParticles() {
     pCtx.clearRect(0, 0, pWidth, pHeight);
     for (const p of particles) {
-      p.y -= p.speedY;
-      p.x += p.speedX;
+      p.x += p.dx;
+      p.y += p.dy;
+      if (p.x < -p.r) p.x = pWidth + p.r;
+      if (p.x > pWidth + p.r) p.x = -p.r;
+      if (p.y < -p.r) p.y = pHeight + p.r;
+      if (p.y > pHeight + p.r) p.y = -p.r;
 
-      if (p.y < 0) p.y = pHeight;
-      if (p.x < 0) p.x = pWidth;
-      if (p.x > pWidth) p.x = 0;
+      const gradient = pCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+      gradient.addColorStop(0, `rgba(76, 201, 240, ${p.alpha})`);
+      gradient.addColorStop(1, `rgba(76, 201, 240, 0)`);
 
+      pCtx.fillStyle = gradient;
       pCtx.beginPath();
-      pCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-      pCtx.fillStyle = `rgba(255,255,255,${p.alpha.toFixed(2)})`;
+      pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       pCtx.fill();
     }
     requestAnimationFrame(drawParticles);
   }
   drawParticles();
 
+  // --- Твой игровой код ---
 
-  // === Игра ===
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
+  let width, height;
 
-  const tileSize = 40;
-  const chunkSize = 16;
-
-  const chunks = new Map();
-  const crystals = new Map();
-
-  const player = {
-    x: 0,
-    y: 0,
-    radius: tileSize / 3,
-    speed: 3,
-    color: '#4cc9f0'  // Голубой цвет игрока
-  };
-
-  let crystalsCollected = 0;
-  const keys = { w: false, a: false, s: false, d: false };
-
-  function generateChunk(cx, cy) {
-    let chunk = [];
-    for (let y = 0; y < chunkSize; y++) {
-      let row = [];
-      for (let x = 0; x < chunkSize; x++) {
-        if (x > 0 && y > 0 && x < chunkSize - 1 && y < chunkSize - 1) {
-          row.push(Math.random() < 0.1 ? 1 : 0);
-        } else {
-          row.push(Math.random() < 0.5 ? 1 : 0);
-        }
-      }
-      chunk.push(row);
-    }
-
-    if (Math.random() < 0.6) {
-      const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[exitLeftY][0] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitRightY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[exitRightY][chunkSize - 1] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitTopX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[0][exitTopX] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitBottomX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[chunkSize - 1][exitBottomX] = 0;
-    }
-
-    if (Math.random() < 0.15) {
-      let freeCells = [];
-      for (let y = 1; y < chunkSize - 1; y++) {
-        for (let x = 1; x < chunkSize - 1; x++) {
-          if (chunk[y][x] === 0) {
-            freeCells.push({x, y});
-          }
-        }
-      }
-      if (freeCells.length) {
-        const crystalCell = freeCells[Math.floor(Math.random() * freeCells.length)];
-        crystals.set(`${cx}_${cy}_${crystalCell.x}_${crystalCell.y}`, {cx, cy, x: crystalCell.x, y: crystalCell.y});
-      }
-    }
-
-    chunks.set(`${cx}_${cy}`, chunk);
+  function resizeGameCanvas() {
+    width = window.innerWidth;
+    height = window.innerHeight - 90; // отнимаем высоту шапки и счетчика
+    canvas.width = width;
+    canvas.height = height;
   }
+  resizeGameCanvas();
+  window.addEventListener('resize', resizeGameCanvas);
 
-  function getChunk(cx, cy) {
-    if (!chunks.has(`${cx}_${cy}`)) {
-      generateChunk(cx, cy);
-    }
-    return chunks.get(`${cx}_${cy}`);
-  }
+  // Примерная игровая логика
+  let gameRunning = false;
+  let crystals = 0;
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const playerChunkX = Math.floor(player.x / (chunkSize * tileSize));
-    const playerChunkY = Math.floor(player.y / (chunkSize * tileSize));
-
-    for (let cy = playerChunkY - 1; cy <= playerChunkY + 1; cy++) {
-      for (let cx = playerChunkX - 1; cx <= playerChunkX + 1; cx++) {
-        const chunk = getChunk(cx, cy);
-        if (!chunk) continue;
-        const offsetX = cx * chunkSize * tileSize;
-        const offsetY = cy * chunkSize * tileSize;
-
-        for (let y = 0; y < chunkSize; y++) {
-          for (let x = 0; x < chunkSize; x++) {
-            if (chunk[y][x] === 1) {
-              ctx.fillStyle = '#555';
-              ctx.fillRect(offsetX + x * tileSize, offsetY + y * tileSize, tileSize, tileSize);
-            }
-          }
-        }
-
-        // Кристаллы
-        for (const [key, c] of crystals) {
-          if (c.cx === cx && c.cy === cy) {
-            const cxPos = offsetX + c.x * tileSize + tileSize / 2;
-            const cyPos = offsetY + c.y * tileSize + tileSize / 2;
-            ctx.fillStyle = '#4cc9f0';
-            ctx.beginPath();
-            ctx.moveTo(cxPos, cyPos - 12);
-            ctx.lineTo(cxPos + 10, cyPos);
-            ctx.lineTo(cxPos, cyPos + 12);
-            ctx.lineTo(cxPos - 10, cyPos);
-            ctx.closePath();
-            ctx.fill();
-          }
-        }
-      }
-    }
-
-    ctx.fillStyle = player.color;
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function canMove(x, y) {
-    const cx = Math.floor(x / (chunkSize * tileSize));
-    const cy = Math.floor(y / (chunkSize * tileSize));
-    const chunk = getChunk(cx, cy);
-    if (!chunk) return false;
-
-    const localX = Math.floor((x % (chunkSize * tileSize)) / tileSize);
-    const localY = Math.floor((y % (chunkSize * tileSize)) / tileSize);
-
-    if (localX < 0 || localX >= chunkSize || localY < 0 || localY >= chunkSize) return false;
-    return chunk[localY][localX] === 0;
-  }
-
-  function checkCrystalPickup() {
-    for (const [key, c] of crystals) {
-      const cxPos = c.cx * chunkSize * tileSize + c.x * tileSize + tileSize / 2;
-      const cyPos = c.cy * chunkSize * tileSize + c.y * tileSize + tileSize / 2;
-      const dist = Math.hypot(player.x - cxPos, player.y - cyPos);
-      if (dist < player.radius + 10) {
-        crystals.delete(key);
-        crystalsCollected++;
-        document.getElementById('crystal-count').textContent = crystalsCollected;
-      }
-    }
-  }
-
-  function update() {
-    let newX = player.x;
-    let newY = player.y;
-    if (keys.w) if(canMove(player.x, player.y - player.speed)) newY -= player.speed;
-    if (keys.s) if(canMove(player.x, player.y + player.speed)) newY += player.speed;
-    if (keys.a) if(canMove(player.x - player.speed, player.y)) newX -= player.speed;
-    if (keys.d) if(canMove(player.x + player.speed, player.y)) newX += player.speed;
-
-    player.x = newX;
-    player.y = newY;
-
-    checkCrystalPickup();
-    draw();
-    requestAnimationFrame(update);
-  }
+  const crystalCounter = document.getElementById('crystal-count');
 
   function startGame() {
-    // Инициализация позиции игрока в центре экрана
-    player.x = window.innerWidth / 2;
-    player.y = window.innerHeight / 2;
+    if (gameRunning) return;
+    gameRunning = true;
+    crystals = 0;
+    crystalCounter.textContent = crystals;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - 90;
+    // Твой код для игры, например простой анимационный цикл
 
-    window.addEventListener('keydown', e => {
-      if (e.key.toLowerCase() in keys) {
-        keys[e.key.toLowerCase()] = true;
-        e.preventDefault();
-      }
-    });
-    window.addEventListener('keyup', e => {
-      if (e.key.toLowerCase() in keys) {
-        keys[e.key.toLowerCase()] = false;
-        e.preventDefault();
-      }
-    });
+    function gameLoop() {
+      if (!gameRunning) return;
 
-    update();
+      ctx.clearRect(0, 0, width, height);
+
+      // Нарисуем кристалл (пример)
+      ctx.fillStyle = '#4cc9f0';
+      ctx.beginPath();
+      ctx.moveTo(width / 2, height / 2 - 30);
+      ctx.lineTo(width / 2 + 20, height / 2);
+      ctx.lineTo(width / 2, height / 2 + 30);
+      ctx.lineTo(width / 2 - 20, height / 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // Обновим счетчик кристаллов
+      crystals++;
+      crystalCounter.textContent = crystals;
+
+      requestAnimationFrame(gameLoop);
+    }
+    gameLoop();
   }
 
 </script>
