@@ -23,18 +23,18 @@
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.6);
     padding: 30px;
-    border-radius: 8px;
-    border: 1px solid white;
+    border-radius: 10px;
     width: 300px;
     text-align: center;
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 15px rgba(255,255,255,0.15);
   }
   .tabs {
     display: flex;
     margin-bottom: 20px;
-    border-bottom: 1px solid white;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
   }
   .tab {
     flex: 1;
@@ -44,30 +44,35 @@
     border: none;
     color: white;
     font-size: 14px;
-    transition: background 0.3s;
+    transition: background 0.3s, color 0.3s;
   }
   .tab.active {
     background: white;
     color: black;
     font-weight: bold;
+    border-radius: 6px 6px 0 0;
   }
   input {
-    width: 90%;
+    width: 100%;
     padding: 10px;
     margin: 8px 0;
-    border: 1px solid white;
-    border-radius: 4px;
-    background: transparent;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.1);
     color: white;
     outline: none;
     font-size: 14px;
+    transition: background 0.3s;
+  }
+  input:focus {
+    background: rgba(255,255,255,0.2);
   }
   button {
-    width: 95%;
+    width: 100%;
     padding: 10px;
     background: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     color: black;
     font-weight: bold;
     cursor: pointer;
@@ -167,7 +172,7 @@ document.getElementById('login-btn').onclick = async () => {
   console.log("Добро пожаловать,", data.nickname);
 };
 
-// Анимация белых шариков
+// Шарики на фоне
 const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
 let balls = [];
@@ -179,13 +184,13 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-for (let i = 0; i < 40; i++) {
+for (let i = 0; i < 50; i++) {
   balls.push({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
-    r: Math.random() * 4 + 2,
-    dx: (Math.random() - 0.5) * 0.5,
-    dy: (Math.random() - 0.5) * 0.5,
+    r: Math.random() * 6 + 3,
+    dx: (Math.random() - 0.5) * 1,
+    dy: (Math.random() - 0.5) * 1,
     alpha: Math.random()
   });
 }
@@ -194,15 +199,19 @@ function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   balls.forEach(b => {
     ctx.beginPath();
-    ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(b.alpha));
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(b.alpha);
     ctx.fillStyle = "white";
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "white";
     ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
     ctx.fill();
     b.x += b.dx;
     b.y += b.dy;
     b.alpha += 0.02;
-    if (b.x < 0 || b.x > canvas.width) b.dx *= -1;
-    if (b.y < 0 || b.y > canvas.height) b.dy *= -1;
+    if (b.x < -b.r) b.x = canvas.width + b.r;
+    if (b.x > canvas.width + b.r) b.x = -b.r;
+    if (b.y < -b.r) b.y = canvas.height + b.r;
+    if (b.y > canvas.height + b.r) b.y = -b.r;
   });
   requestAnimationFrame(animate);
 }
