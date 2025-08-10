@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
@@ -86,7 +86,7 @@
       <div id="tab-register" class="tab">Register</div>
     </div>
 
-    <!-- LOGIN uses nickname + password -->
+    <!-- LOGIN: nickname + password -->
     <form id="login-form" style="display:flex">
       <label for="login-nick">Nickname</label>
       <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
@@ -98,7 +98,7 @@
       <div id="login-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
     </form>
 
-    <!-- REGISTER: nick + password only -->
+    <!-- REGISTER: nickname + password -->
     <form id="register-form" style="display:none">
       <label for="reg-password">Password (min 6)</label>
       <input id="reg-password" type="password" placeholder="password" minlength="6" required />
@@ -135,12 +135,11 @@
   <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
   <script>
-  /*************** SUPABASE CONFIG ***************/
+  /*************** CONFIG & HELPERS ***************/
   const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
   const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  /*************** Helper to show message in menu ***************/
   function showMenuMessage(text, targetId=null){
     if(targetId){
       const el = document.getElementById(targetId);
@@ -151,7 +150,7 @@
     }
   }
 
-  /*************** MENU UI logic (unchanged) ***************/
+  /*************** MENU UI logic (kept robust) ***************/
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
   const loginForm = document.getElementById('login-form');
@@ -168,13 +167,12 @@
     showMenuMessage('');
   };
 
-  // login fields (note: changed id login-nick)
+  // login & register fields + buttons
   const loginNick = document.getElementById('login-nick');
   const loginPassword = document.getElementById('login-password');
   const loginBtn = document.getElementById('login-btn');
   const loginMsg = document.getElementById('login-msg');
 
-  // register fields (no email)
   const regPassword = document.getElementById('reg-password');
   const regNick = document.getElementById('reg-nick');
   const regBtn = document.getElementById('reg-btn');
@@ -186,40 +184,39 @@
   [loginNick, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
   [regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
 
-  /*************** Particles (menu background) — visible, glowing dots ***************/
+  /*************** PARTICLES (visible glowing dots) ***************/
   const pCanvas = document.getElementById('particles');
   const pCtx = pCanvas.getContext('2d');
-  let pw = window.innerWidth, ph = window.innerHeight;
-  function resizeParticles(){ pw = window.innerWidth; ph = window.innerHeight; pCanvas.width = pw; pCanvas.height = ph; }
-  window.addEventListener('resize', resizeParticles);
+  let pw = innerWidth, ph = innerHeight;
+  function resizeParticles(){ pw = innerWidth; ph = innerHeight; pCanvas.width = pw; pCanvas.height = ph; }
+  addEventListener('resize', resizeParticles);
   resizeParticles();
 
   class Particle {
     constructor(){
       this.x = Math.random()*pw;
       this.y = Math.random()*ph;
-      this.r = 2 + Math.random()*8;        // larger radius for visibility
-      this.vx = (Math.random()-0.5)*1.2;   // faster
-      this.vy = (Math.random()-0.5)*1.2;
-      this.alpha = 0.4 + Math.random()*0.6; // brighter
-      this.phase = Math.random()*Math.PI*2; // for twinkle
+      this.r = 1 + Math.random()*5;
+      this.vx = (Math.random()-0.5)*0.8;
+      this.vy = (Math.random()-0.5)*0.8;
+      this.alpha = 0.3 + Math.random()*0.6;
+      this.phase = Math.random()*Math.PI*2;
     }
     step(){
       this.x += this.vx;
       this.y += this.vy;
-      this.phase += 0.02 + Math.random()*0.01;
-      if(this.x < -100) this.x = pw + 100;
-      if(this.x > pw + 100) this.x = -100;
-      if(this.y < -100) this.y = ph + 100;
-      if(this.y > ph + 100) this.y = -100;
+      this.phase += 0.03;
+      if(this.x < -60) this.x = pw + 60;
+      if(this.x > pw + 60) this.x = -60;
+      if(this.y < -60) this.y = ph + 60;
+      if(this.y > ph + 60) this.y = -60;
     }
     draw(){
       pCtx.beginPath();
-      // twinkle effect
-      const a = Math.max(0.15, Math.min(1, this.alpha * (0.6 + 0.4 * Math.sin(this.phase))));
+      const a = Math.max(0.12, Math.min(1, this.alpha * (0.6 + 0.4*Math.sin(this.phase))));
       pCtx.globalAlpha = a;
-      pCtx.fillStyle = `white`;
-      pCtx.shadowBlur = 20;
+      pCtx.fillStyle = 'white';
+      pCtx.shadowBlur = 18;
       pCtx.shadowColor = 'white';
       pCtx.arc(this.x, this.y, this.r, 0, Math.PI*2);
       pCtx.fill();
@@ -227,12 +224,13 @@
       pCtx.globalAlpha = 1;
     }
   }
-  const particles = Array.from({length:80}, ()=>new Particle());
+
+  const particles = Array.from({length:80}, () => new Particle());
   (function animParticles(){
     pCtx.clearRect(0,0,pw,ph);
-    // subtle background gradient for depth
+    // subtle gradient
     const grad = pCtx.createLinearGradient(0,0,0,ph);
-    grad.addColorStop(0, 'rgba(255,255,255,0.02)');
+    grad.addColorStop(0, 'rgba(255,255,255,0.01)');
     grad.addColorStop(1, 'rgba(255,255,255,0.00)');
     pCtx.fillStyle = grad;
     pCtx.fillRect(0,0,pw,ph);
@@ -241,7 +239,7 @@
     requestAnimationFrame(animParticles);
   })();
 
-  /*************** GAME (kept, with Supabase persistence) ***************/
+  /*************** GAME (kept intact) ***************/
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const counterNumber = document.getElementById('crystal-count');
@@ -270,7 +268,6 @@
   let crystalsCollected = 0;
   const keys = { w: false, a: false, s: false, d: false };
 
-  // collected set loaded from DB to keep crystals removed
   let collectedSet = new Set();
 
   function generateChunk(cx, cy) {
@@ -308,9 +305,7 @@
       let freeCells = [];
       for (let y = 1; y < chunkSize - 1; y++) {
         for (let x = 1; x < chunkSize - 1; x++) {
-          if (chunk[y][x] === 0) {
-            freeCells.push({ x, y });
-          }
+          if (chunk[y][x] === 0) freeCells.push({ x, y });
         }
       }
       if (freeCells.length > 0) {
@@ -329,9 +324,7 @@
 
   function getChunk(cx, cy) {
     const key = `${cx},${cy}`;
-    if (!chunks.has(key)) {
-      chunks.set(key, generateChunk(cx, cy));
-    }
+    if (!chunks.has(key)) chunks.set(key, generateChunk(cx, cy));
     return chunks.get(key);
   }
 
@@ -356,10 +349,7 @@
             if (chunk[ty][tx] === 1) {
               const wallX = nx * chunkSize * tileSize + tx * tileSize;
               const wallY = ny * chunkSize * tileSize + ty * tileSize;
-
-              if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) {
-                return false;
-              }
+              if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) return false;
             }
           }
         }
@@ -397,7 +387,6 @@
     for (let cy = topChunk; cy <= bottomChunk; cy++) {
       for (let cx = leftChunk; cx <= rightChunk; cx++) {
         const chunk = getChunk(cx, cy);
-
         for (let y = 0; y < chunkSize; y++) {
           for (let x = 0; x < chunkSize; x++) {
             if (chunk[y][x] === 1) {
@@ -417,7 +406,6 @@
   function drawCrystals() {
     const camX = player.x - canvas.width / 2;
     const camY = player.y - canvas.height / 2;
-
     for (const [key, pos] of crystals) {
       const px = pos.x - camX;
       const py = pos.y - camY;
@@ -426,38 +414,33 @@
     }
   }
 
-  // --- Current logged user object from DB ---
-  let currentUser = null; // { id, nickname, crystals, collected (array) }
+  // current user from DB
+  let currentUser = null; // object { id, nickname, crystals, collected }
 
   async function collectCrystal() {
     for (const [key, pos] of crystals) {
       const dx = player.x - pos.x;
       const dy = player.y - pos.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < player.radius + tileSize / 2) {
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < player.radius + tileSize/2) {
         crystals.delete(key);
-        // mark collected locally & persist
         collectedSet.add(key);
         crystalsCollected++;
         counterNumber.textContent = crystalsCollected;
 
-        // persist to Supabase: update crystals and collected array (if available)
+        // persist to Supabase
         try {
           if (currentUser && currentUser.id) {
             if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
             if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
-
             const { error } = await supabase
               .from('users')
               .update({ crystals: crystalsCollected, collected: currentUser.collected })
               .eq('id', currentUser.id);
-            if (error) console.error('Failed to persist collect:', error);
+            if (error) console.error('persist collect error', error);
           }
-        } catch (err) {
-          console.error('Failed to persist collect (exception):', err);
-        }
-
-        break; // only one per frame
+        } catch (e) { console.error(e); }
+        break;
       }
     }
   }
@@ -471,8 +454,7 @@
     if (keys.d) newX += player.speed;
 
     if (canMoveTo(newX, newY)) {
-      player.x = newX;
-      player.y = newY;
+      player.x = newX; player.y = newY;
     } else if (canMoveTo(player.x, newY)) {
       player.y = newY;
     } else if (canMoveTo(newX, player.y)) {
@@ -481,16 +463,13 @@
   }
 
   function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
     drawWalls();
     drawCrystals();
-
-    // Player — center of screen, blue
     ctx.fillStyle = player.color;
     ctx.beginPath();
-    const px = canvas.width / 2;
-    const py = canvas.height / 2;
-    ctx.arc(px, py, player.radius, 0, 2 * Math.PI);
+    const px = canvas.width/2, py = canvas.height/2;
+    ctx.arc(px, py, player.radius, 0, Math.PI*2);
     ctx.fill();
   }
 
@@ -503,16 +482,12 @@
     requestAnimationFrame(gameLoop);
   }
 
-  window.addEventListener('keydown', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
-  });
-  window.addEventListener('keyup', e => {
-    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
-  });
+  addEventListener('keydown', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
+  addEventListener('keyup', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
 
-  /*************** AUTH: registration & login using Supabase + bcrypt ***************/
+  /*************** AUTH (Supabase + bcrypt) ***************/
 
-  // Register
+  // Register handler (keeps same wiring as original forms)
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     regMsg.textContent = '';
@@ -520,10 +495,11 @@
     try {
       const pass = regPassword.value;
       const nick = regNick.value.trim();
+      if (!nick || !pass) { regMsg.textContent = 'Заполните поля'; regBtn.disabled = false; return; }
 
       showMenuMessage('Registering...');
 
-      // Hash password in browser (bcrypt)
+      // hash in browser
       const hash = await new Promise((res, rej) => {
         bcrypt.genSalt(10, (err, salt) => {
           if (err) return rej(err);
@@ -531,7 +507,7 @@
         });
       });
 
-      // Insert user row in Supabase
+      // insert user
       const { data, error } = await supabase
         .from('users')
         .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
@@ -541,6 +517,7 @@
       if (error) {
         regMsg.textContent = error.message || 'Registration failed';
         showMenuMessage('');
+        regBtn.disabled = false;
         return;
       }
 
@@ -556,7 +533,7 @@
     }
   });
 
-  // Login
+  // Login handler
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     loginMsg.textContent = '';
@@ -564,6 +541,7 @@
     try {
       const nick = loginNick.value.trim();
       const pass = loginPassword.value;
+      if (!nick || !pass) { loginMsg.textContent = 'Заполните поля'; loginBtn.disabled = false; return; }
 
       showMenuMessage('Checking credentials...');
 
@@ -603,36 +581,37 @@
     }
   });
 
-  // after login/register: load user data into local state and start game
+  // After successful auth: load state and start game
   async function afterSuccessfulAuth(){
     try {
       collectedSet = new Set(Array.isArray(currentUser.collected) ? currentUser.collected : []);
       crystalsCollected = currentUser.crystals || 0;
       counterNumber.textContent = crystalsCollected;
 
-      chunks.clear();
-      crystals.clear();
-
+      // Reset world and spawn
+      chunks.clear(); crystals.clear();
       spawnPlayer();
 
+      // show UI
       document.getElementById('menu').style.display = 'none';
       document.getElementById('header').style.display = 'flex';
       document.getElementById('game').style.display = 'block';
       document.getElementById('counter').style.display = 'flex';
       document.getElementById('controls').style.display = 'block';
 
-      const existing = document.getElementById('headerNickSmall');
-      if(!existing){
+      // show nickname small
+      let existing = document.getElementById('headerNickSmall');
+      if (!existing) {
         const span = document.createElement('div');
         span.id = 'headerNickSmall';
         span.style.fontSize = '12px';
         span.style.color = '#bbb';
+        span.style.marginLeft = '8px';
         span.textContent = currentUser.nickname || '';
         document.getElementById('header').appendChild(span);
-      } else {
-        existing.textContent = currentUser.nickname || '';
-      }
+      } else existing.textContent = currentUser.nickname || '';
 
+      // start game loop
       if (!gameRunning) {
         gameRunning = true;
         resizeCanvas();
@@ -644,13 +623,13 @@
     }
   }
 
-  // Logout (double click header)
+  // Logout (double click header) - saves progress then returns to menu
   document.getElementById('header').addEventListener('dblclick', async () => {
     try {
       if (currentUser && currentUser.id) {
         try {
           await supabase.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
-        } catch(e) { console.warn('save before logout failed', e); }
+        } catch(e){ console.warn('save before logout failed', e); }
       }
     } catch(e){}
     currentUser = null;
@@ -666,7 +645,7 @@
   });
 
   // save progress on unload
-  window.addEventListener('beforeunload', async (e) => {
+  window.addEventListener('beforeunload', async () => {
     if (currentUser && currentUser.id) {
       try {
         await supabase.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
@@ -674,11 +653,8 @@
     }
   });
 
-  // Ensure crystal image loaded before starting draw loop visually (not necessary for logic)
-  crystalImage.onload = () => {
-    // no-op; loop starts when user logs in
-  };
-
+  // ensure crystal image loaded (no-op)
+  crystalImage.onload = () => {};
   </script>
 </body>
 </html>
