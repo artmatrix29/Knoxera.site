@@ -3,11 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Knoxera — demo</title>
+  <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
   <style>
     :root { --accent: #4cc9f0; }
     html,body { height:100%; margin:0; background:#000; color:#fff; font-family:Arial,Helvetica,sans-serif; overflow:hidden; }
+
     /* particles canvas behind menu */
     #particles { position:fixed; inset:0; z-index:0; pointer-events:none; background:transparent; }
 
@@ -15,7 +16,7 @@
     #menu { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; }
     .card {
       width:360px; max-width:92vw;
-      background: rgba(10,10,10,0.94);
+      background: rgba(8,8,8,0.95);
       padding:18px; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.7);
       display:flex; flex-direction:column; gap:10px; align-items:stretch;
     }
@@ -29,9 +30,7 @@
     input::placeholder { color:#666; }
     input:focus { border-color:#333; background:#121212; }
 
-    button {
-      padding:10px; border-radius:8px; background:#000; color:#fff; border:1px solid #fff; font-weight:700; cursor:pointer;
-    }
+    button { padding:10px; border-radius:8px; background:#000; color:#fff; border:1px solid #fff; font-weight:700; cursor:pointer; }
     button:disabled { opacity:0.45; cursor:not-allowed; }
 
     #notice { color:#f66; font-size:13px; min-height:18px; text-align:center; margin-top:6px; }
@@ -52,10 +51,8 @@
 </head>
 <body>
 
-  <!-- particles background -->
   <canvas id="particles"></canvas>
 
-  <!-- menu -->
   <div id="menu" aria-label="menu">
     <div class="card" role="dialog" aria-labelledby="menuTitle">
       <div class="tabs" role="tablist">
@@ -63,7 +60,6 @@
         <div id="tab-register" class="tab" role="tab">Register</div>
       </div>
 
-      <!-- login form (nickname + password) -->
       <form id="login-form" autocomplete="off">
         <h2 id="menuTitle">Knoxera</h2>
         <label for="login-nick">Nickname</label>
@@ -76,7 +72,6 @@
         <div id="login-msg" style="color:#f66; min-height:18px;"></div>
       </form>
 
-      <!-- register form -->
       <form id="register-form" style="display:none" autocomplete="off">
         <h2 style="visibility:hidden; height:0; margin:0;">.</h2>
         <label for="reg-nick">Nickname</label>
@@ -93,7 +88,6 @@
     </div>
   </div>
 
-  <!-- header shown after auth -->
   <div id="header" style="display:none">
     <img src="knoxeralogo.png" alt="logo" />
     <div>
@@ -102,41 +96,65 @@
     </div>
   </div>
 
-  <!-- game canvas -->
   <canvas id="game" style="display:none"></canvas>
 
-  <!-- counter & controls -->
   <div id="counter" style="display:none"><img src="greencristal.png" alt="crystal" style="width:28px;height:28px"/><div id="crystal-count">0</div></div>
   <div id="controls">WASD / Arrow keys to move</div>
 
-  <!-- load libraries in correct order -->
-  <!-- Supabase UMD -->
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <!-- bcrypt (without integrity to avoid SRI blocking) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
 
-  <!-- main script: run after libraries loaded -->
   <script>
-  // ensure libs loaded before running
+  // Run after page load
   window.addEventListener('load', () => {
-    // --- sanity checks ---
+
+    // --- Basic checks ---
     if (typeof supabase === 'undefined') {
-      console.error('Supabase SDK not loaded.');
       document.getElementById('notice').textContent = 'Ошибка: supabase SDK не загружен.';
-      return;
-    }
-    if (typeof bcrypt === 'undefined') {
-      console.error('bcrypt is not loaded. Check network / CDN.');
-      document.getElementById('notice').textContent = 'Ошибка: bcrypt не загружен. Проверь подключение.';
+      console.error('Supabase SDK not loaded');
       return;
     }
 
-    // --- Supabase init (your URL/key) ---
+    // --- Supabase init (your values) ---
     const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // --- helpers & UI refs ---
+    // --- Helpers for base64/Uint8 conversions ---
+    function u8ToBase64(u8) {
+      let s = '';
+      for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+      return btoa(s);
+    }
+    function base64ToU8(b64) {
+      const s = atob(b64 || '');
+      const u8 = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
+      return u8;
+    }
+
+    // --- PBKDF2 password hashing via Web Crypto ---
+    async function pbkdf2Hash(password, saltBase64 = null) {
+      const enc = new TextEncoder();
+      const salt = saltBase64 ? base64ToU8(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
+      const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name:'PBKDF2'}, false, ['deriveBits']);
+      // iterations: 100000 (reasonable). Use 100k iterations; can be tuned.
+      const derivedBits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
+      const hashU8 = new Uint8Array(derivedBits);
+      return { hash: u8ToBase64(hashU8), salt: u8ToBase64(salt) };
+    }
+
+    async function pbkdf2Verify(password, storedHashBase64, saltBase64) {
+      const { hash } = await pbkdf2Hash(password, saltBase64);
+      // constant-time compare
+      const a = base64ToU8(hash), b = base64ToU8(storedHashBase64);
+      if (a.length !== b.length) return false;
+      let diff = 0;
+      for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+      return diff === 0;
+    }
+
+    // --- UI refs & small helpers ---
     const tabLogin = document.getElementById('tab-login');
     const tabRegister = document.getElementById('tab-register');
     const loginForm = document.getElementById('login-form');
@@ -162,7 +180,6 @@
       }
     }
 
-    // tabs
     tabLogin.addEventListener('click', () => {
       tabLogin.classList.add('active'); tabRegister.classList.remove('active');
       loginForm.style.display = 'flex'; registerForm.style.display = 'none';
@@ -174,14 +191,13 @@
       showMenuMessage('');
     });
 
-    // validation
     function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length >= 2 && loginPassword.value.trim().length >= 6); }
     function validateRegBtn(){ regBtn.disabled = !(regNick.value.trim().length >=2 && regPassword.value.trim().length >= 6); }
     [loginNick, loginPassword].forEach(el => el.addEventListener('input', validateLoginBtn));
     [regNick, regPassword].forEach(el => el.addEventListener('input', validateRegBtn));
     validateLoginBtn(); validateRegBtn();
 
-    // --- particles background ---
+    // --- particles (background) ---
     const pCanvas = document.getElementById('particles');
     const pCtx = pCanvas.getContext('2d');
     let pw = innerWidth, ph = innerHeight;
@@ -228,10 +244,11 @@
       requestAnimationFrame(animParticles);
     })();
 
-    // --- game code (your provided game) ---
+    // --- Game code (kept from your version) ---
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const counterNumber = document.getElementById('crystal-count');
+
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       const header = document.getElementById('header');
@@ -260,7 +277,6 @@
         }
         chunk.push(row);
       }
-      // create exits
       if (Math.random()<0.6){ const y = Math.floor(Math.random()*(chunkSize-2))+1; chunk[y][0]=0; }
       if (Math.random()<0.6){ const y = Math.floor(Math.random()*(chunkSize-2))+1; chunk[y][chunkSize-1]=0; }
       if (Math.random()<0.6){ const x = Math.floor(Math.random()*(chunkSize-2))+1; chunk[0][x]=0; }
@@ -303,8 +319,8 @@
       for (let ny=cy-1; ny<=cy+1; ny++){
         for (let nx=cx-1; nx<=cx+1; nx++){
           const chunk = getChunk(nx,ny);
-          for(let ty=0; ty<chunkSize; ty++){
-            for(let tx=0; tx<chunkSize; tx++){
+          for (let ty=0; ty<chunkSize; ty++){
+            for (let tx=0; tx<chunkSize; tx++){
               if(chunk[ty][tx]===1){
                 const wallX = nx*chunkSize*tileSize + tx*tileSize;
                 const wallY = ny*chunkSize*tileSize + ty*tileSize;
@@ -376,14 +392,11 @@
           // persist to supabase
           try {
             if (currentUser && currentUser.id) {
-              // keep collected array up-to-date in memory
               if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
               if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
               await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: currentUser.collected }).eq('id', currentUser.id);
             }
-          } catch(err) {
-            console.error('Persist collect failed', err);
-          }
+          } catch(err) { console.error('Persist collect failed', err); }
           break;
         }
       }
@@ -404,7 +417,6 @@
       ctx.clearRect(0,0,canvas.width,canvas.height);
       drawWalls();
       drawCrystals();
-      // player at center
       ctx.fillStyle = player.color;
       ctx.beginPath();
       const px = canvas.width/2, py = canvas.height/2;
@@ -421,7 +433,6 @@
       requestAnimationFrame(gameLoop);
     }
 
-    // keyboard safe handlers
     window.addEventListener('keydown', e => {
       const k = e && typeof e.key === 'string' ? e.key.toLowerCase() : null;
       if (k && k in keys) keys[k] = true;
@@ -431,10 +442,7 @@
       if (k && k in keys) keys[k] = false;
     });
 
-    // --- AUTH: register/login using Supabase table 'users'
-    // expected table columns: id (pk), nickname (text, unique), password_hash (text), crystals (int), collected (json/array)
-
-    // register
+    // --- AUTH flows using PBKDF2/WebCrypto ---
     registerForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       regMsg.textContent = ''; regBtn.disabled = true;
@@ -445,50 +453,35 @@
 
         showMenuMessage('Регистрация...');
 
-        // check existence first (friendly)
-        const { data: existing } = await supabaseClient.from('users').select('id').eq('nickname', nick).maybeSingle();
+        // check existence
+        const { data: existing, error: errExist } = await supabaseClient.from('users').select('id').eq('nickname', nick).maybeSingle();
+        if (errExist) { throw errExist; }
         if (existing) {
           regMsg.textContent = 'Никнейм занят';
-          showMenuMessage('');
-          regBtn.disabled = false;
-          return;
+          showMenuMessage(''); regBtn.disabled = false; return;
         }
 
-        // hash password (async)
-        const hash = await new Promise((res, rej) => {
-          bcrypt.genSalt(10, (err, salt) => {
-            if (err) return rej(err);
-            bcrypt.hash(pass, salt, (err2, hashed) => err2 ? rej(err2) : res(hashed));
-          });
-        });
+        // hash with pbkdf2
+        const { hash, salt } = await pbkdf2Hash(pass);
 
-        // insert user
+        // insert
         const { data, error } = await supabaseClient
           .from('users')
-          .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
+          .insert([{ nickname: nick, password_hash: hash, password_salt: salt, crystals: 0, collected: [] }])
           .select()
           .maybeSingle();
 
-        if (error || !data) {
-          regMsg.textContent = (error && error.message) ? error.message : 'Ошибка регистрации';
-          showMenuMessage('');
-          regBtn.disabled = false;
-          return;
-        }
+        if (error || !data) { regMsg.textContent = (error && error.message) ? error.message : 'Ошибка регистрации'; showMenuMessage(''); regBtn.disabled=false; return; }
 
-        // success -> sign in user automatically
         currentUser = data;
         await afterAuthLoad();
         showMenuMessage('Успешно зарегистрированы');
       } catch(err) {
         console.error('register error', err);
         regMsg.textContent = (err && err.message) ? err.message : 'Регистрация не удалась';
-      } finally {
-        regBtn.disabled = false;
-      }
+      } finally { regBtn.disabled = false; }
     });
 
-    // login
     loginForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       loginMsg.textContent = ''; loginBtn.disabled = true;
@@ -500,19 +493,18 @@
         showMenuMessage('Проверка...');
 
         const { data, error } = await supabaseClient.from('users').select('*').eq('nickname', nick).maybeSingle();
-        if (error || !data) {
+        if (error) { throw error; }
+        if (!data) {
           loginMsg.textContent = 'Неверный ник или пароль';
-          showMenuMessage('');
-          loginBtn.disabled = false;
-          return;
+          showMenuMessage(''); loginBtn.disabled=false; return;
         }
 
-        const ok = await new Promise((res, rej) => {
-          bcrypt.compare(pass, data.password_hash, (err, same) => err ? rej(err) : res(same));
-        });
-
-        if (!ok) {
-          loginMsg.textContent = 'Неверный ник или пароль';
+        // If user has password_salt, we use pbkdf2; otherwise ask to re-register.
+        if (data.password_salt) {
+          const ok = await pbkdf2Verify(pass, data.password_hash, data.password_salt);
+          if (!ok) { loginMsg.textContent = 'Неверный ник или пароль'; showMenuMessage(''); loginBtn.disabled=false; return; }
+        } else {
+          loginMsg.textContent = 'Нужна миграция пароля: перерегистрируйтесь (старые хэши несовместимы)';
           showMenuMessage('');
           loginBtn.disabled = false;
           return;
@@ -524,12 +516,9 @@
       } catch(err) {
         console.error('login error', err);
         loginMsg.textContent = (err && err.message) ? err.message : 'Вход не удался';
-      } finally {
-        loginBtn.disabled = false;
-      }
+      } finally { loginBtn.disabled = false; }
     });
 
-    // after auth success: load user fields and show game UI
     async function afterAuthLoad(){
       try {
         collectedSet = new Set(Array.isArray(currentUser.collected) ? currentUser.collected : []);
@@ -541,7 +530,6 @@
 
         spawnPlayer();
 
-        // show UI
         document.getElementById('menu').style.display = 'none';
         document.getElementById('header').style.display = 'flex';
         document.getElementById('game').style.display = 'block';
@@ -556,13 +544,13 @@
       }
     }
 
-    // logout/save
+    // logout/save on double click header
     document.getElementById('header').addEventListener('dblclick', async () => {
       try {
         if (currentUser && currentUser.id) {
           await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
         }
-      } catch(e){ console.warn('save on logout failed', e); }
+      } catch(e) { console.warn('save on logout failed', e); }
       currentUser = null;
       collectedSet = new Set();
       crystalsCollected = 0;
@@ -584,7 +572,7 @@
       }
     });
 
-    // done setup
+    // done
     showMenuMessage('');
   }); // load
   </script>
