@@ -1,120 +1,116 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
   <style>
-    :root { --accent: #4cc9f0; }
-    html,body {
-      height:100%;
-      margin:0;
-      background:#000;
-      color:#fff;
-      font-family: Arial, Helvetica, sans-serif;
-      overflow:hidden;
-    }
+    :root { --accent: #4cc9f0; --bg:#000; --panel:#111; --muted:#aaa; }
+    html,body{height:100%;margin:0;background:var(--bg);color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+    /* particles canvas under everything */
+    #particles { position:fixed; inset:0; z-index:5; background:transparent; }
 
-    /* MENU (overlay) */
+    /* menu overlay */
     #menu {
       position:fixed; inset:0;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.95);
-      z-index:30;
+      display:flex; align-items:center; justify-content:center;
+      z-index:20;
       pointer-events:auto;
     }
-    #particles { position:fixed; inset:0; z-index:10; pointer-events:none; background:transparent; }
-
-    .tabs { display:flex; gap:12px; margin-bottom:18px; z-index:32; }
-    .tab { color:#fff; padding:8px 16px; cursor:pointer; border-bottom:2px solid transparent; user-select:none; }
-    .tab.active { border-bottom-color:#fff; font-weight:700; }
-
-    form {
-      width:340px;
-      background:#111;
-      padding:18px;
-      border-radius:10px;
-      display:flex; flex-direction:column; gap:10px;
-      z-index:32;
+    .menu-panel{
+      width:360px; padding:20px; border-radius:12px; background:linear-gradient(180deg, rgba(10,10,10,0.9), rgba(20,20,20,0.9));
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255,255,255,0.04);
+      position:relative;
     }
+    .tabs{ display:flex; gap:8px; margin-bottom:14px; }
+    .tab {
+      padding:8px 14px; border-radius:8px; cursor:pointer; user-select:none;
+      background:transparent; color:#ddd; border:1px solid transparent;
+    }
+    .tab.active{ background:rgba(255,255,255,0.04); color:#fff; font-weight:700; border-color:rgba(255,255,255,0.06); }
+
+    form { display:flex; flex-direction:column; gap:10px; }
     label { font-size:13px; color:#ddd; }
     input {
-      padding:10px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; outline:none;
+      padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);
+      background: #0f0f0f; color:#fff; outline:none;
     }
-    input:focus { border-color:#666; background:#2a2a2a; }
+    input:focus { box-shadow: 0 0 0 3px rgba(76,201,240,0.08); border-color:rgba(76,201,240,0.18); }
     button {
-      padding:10px; border-radius:6px; border:2px solid #fff; background:#000; color:#fff; font-weight:700; cursor:pointer;
+      padding:10px; border-radius:8px; border:2px solid #fff; background:#000; color:#fff; font-weight:700; cursor:pointer;
     }
-    button:disabled { opacity:0.45; cursor:not-allowed; }
+    button:disabled{ opacity:0.45; cursor:not-allowed; }
 
-    /* Header and game */
-    #header {
-      display:flex; align-items:center; gap:12px;
-      padding:10px 14px; height:70px; box-sizing:border-box;
-      color:#fff; z-index:15;
+    #notice{ height:18px; margin-top:8px; color:#f66; font-size:13px; text-align:center; }
+
+    /* header & game */
+    #header{ display:flex; align-items:center; gap:12px; padding:10px 14px; height:70px; box-sizing:border-box; color:#fff; z-index:15; }
+    #header img{ width:40px; height:40px; border-radius:50%; }
+    canvas#game{ display:block; background:var(--bg); width:100vw; height:calc(100vh - 90px); border:1px solid rgba(255,255,255,0.04); box-sizing:border-box; }
+
+    #counter{ position:fixed; top:12px; right:20px; display:flex; align-items:center; gap:8px; z-index:15; color:#fff; font-weight:700; }
+    #controls{ position:fixed; left:12px; bottom:12px; color:var(--muted); font-size:13px; z-index:15; }
+
+    /* small responsiveness */
+    @media (max-width:420px){
+      .menu-panel{ width:92%; padding:14px; }
     }
-    #header img { width:40px; height:40px; border-radius:50%; }
-    #header h1 { margin:0; font-weight:normal; color:#fff; }
-
-    canvas#game {
-      display:block; background:#000; width:100vw; height:calc(100vh - 90px);
-      border:1px solid rgba(255,255,255,0.04); box-sizing:border-box;
-    }
-
-    #counter {
-      position:fixed; top:12px; right:20px; display:flex; align-items:center; gap:8px; z-index:15;
-      color:#fff; font-weight:700;
-    }
-    #counter img { width:28px; height:28px; }
-
-    #notice { color:#f66; margin-top:8px; font-size:13px; text-align:center; }
-
-    /* small helper */
-    #controls { position:fixed; left:12px; bottom:12px; color:#aaa; font-size:13px; z-index:15; }
   </style>
 </head>
 <body>
 
-  <!-- Particles (menu background) -->
+  <!-- Particles layer -->
   <canvas id="particles"></canvas>
 
-  <!-- Menu UI -->
-  <div id="menu">
-    <div class="tabs" style="z-index:32">
-      <div id="tab-login" class="tab active">Login</div>
-      <div id="tab-register" class="tab">Register</div>
+  <!-- Menu -->
+  <div id="menu" aria-hidden="false">
+    <div class="menu-panel" role="dialog" aria-label="Menu">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <img src="knoxeralogo.png" alt="logo" style="width:36px;height:36px;border-radius:8px" />
+          <div>
+            <div style="font-size:18px;font-weight:700">Knoxera</div>
+            <div style="font-size:12px;color:#bbb">Ник + Пароль (хэшируется)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="auth tabs">
+        <div id="tab-login" class="tab active" role="tab" aria-selected="true">Login</div>
+        <div id="tab-register" class="tab" role="tab" aria-selected="false">Register</div>
+      </div>
+
+      <!-- Login form -->
+      <form id="login-form" autocomplete="on" aria-hidden="false">
+        <label for="login-nick">Nickname</label>
+        <input id="login-nick" name="login-nick" type="text" placeholder="Your nickname" required minlength="2" />
+        <label for="login-password">Password</label>
+        <input id="login-password" name="login-password" type="password" placeholder="password" required minlength="3" />
+        <button id="login-btn" type="submit" disabled>Login</button>
+        <div id="login-msg" style="color:#f66;height:18px;margin-top:6px;font-size:13px"></div>
+      </form>
+
+      <!-- Register form (hidden initially) -->
+      <form id="register-form" autocomplete="new-password" style="display:none" aria-hidden="true">
+        <label for="reg-nick">Nickname</label>
+        <input id="reg-nick" name="reg-nick" type="text" placeholder="Choose a nickname" required minlength="2" maxlength="20" />
+        <label for="reg-password">Password (min 3)</label>
+        <input id="reg-password" name="reg-password" type="password" placeholder="password" required minlength="3" />
+        <button id="reg-btn" type="submit" disabled>Register</button>
+        <div id="reg-msg" style="color:#f66;height:18px;margin-top:6px;font-size:13px"></div>
+      </form>
+
+      <div id="notice" aria-live="polite"></div>
     </div>
-
-    <form id="login-form" style="display:flex; flex-direction:column;">
-      <label for="login-nick">Nickname</label>
-      <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
-
-      <label for="login-password">Password</label>
-      <input id="login-password" type="password" placeholder="password" autocomplete="current-password" minlength="3" required />
-
-      <button id="login-btn" type="submit" disabled>Login</button>
-      <div id="login-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
-    </form>
-
-    <form id="register-form" style="display:none; flex-direction:column;">
-      <label for="reg-nick">Nickname</label>
-      <input id="reg-nick" type="text" placeholder="Your nickname" maxlength="20" required />
-
-      <label for="reg-password">Password (min 3)</label>
-      <input id="reg-password" type="password" placeholder="password" minlength="3" required />
-
-      <button id="reg-btn" type="submit" disabled>Register</button>
-      <div id="reg-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
-    </form>
-
-    <div id="notice" style="height:18px"></div>
   </div>
 
-  <!-- Header (shown after login) -->
+  <!-- Header shown after login -->
   <div id="header" style="display:none">
-    <img src="knoxeralogo.png" alt="logo" />
-    <h1>Knoxera</h1>
+    <img src="knoxeralogo.png" alt="logo"/>
+    <h1 style="margin:0;font-weight:400">Knoxera</h1>
   </div>
 
   <!-- Game canvas -->
@@ -122,25 +118,24 @@
 
   <!-- Counter -->
   <div id="counter" style="display:none">
-    <img src="greencristal.png" alt="crystal" />
+    <img src="greencristal.png" alt="crystal" style="width:28px;height:28px" />
     <div id="crystal-count">0</div>
   </div>
 
-  <div id="controls" style="display:none">WASD / Arrow keys to move</div>
+  <div id="controls" style="display:none">WASD / Arrow keys to move — double-click header to logout</div>
 
-  <!-- Supabase SDK (browser) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <!-- bcryptjs for hashing on client -->
+  <!-- Supabase and bcryptjs (UMD builds) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
   <script>
-  /*************** SUPABASE SETUP ***************/
+  /******** CONFIG (вставь свои данные если нужно) *********/
   const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
-  const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
-  // NOTE: supabaseJs from bundled script exposes "supabaseJs" global; createClient as used above.
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  /*************** UI ELEMENTS & STATE ***************/
+  /******** UI refs *********/
+  const menu = document.getElementById('menu');
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
   const loginForm = document.getElementById('login-form');
@@ -156,162 +151,164 @@
   const regBtn = document.getElementById('reg-btn');
   const regMsg = document.getElementById('reg-msg');
 
+  const noticeEl = document.getElementById('notice');
+  const header = document.getElementById('header');
+  const gameCanvas = document.getElementById('game');
+  const counterWrap = document.getElementById('counter');
   const counterNumber = document.getElementById('crystal-count');
+  const controls = document.getElementById('controls');
 
-  function showMenuMessage(text, targetId=null){
-    if(targetId){
-      const el = document.getElementById(targetId);
-      if(el) el.textContent = text;
-    } else {
-      const n = document.getElementById('notice');
-      n.textContent = text || '';
-    }
-  }
+  function showNotice(text){ noticeEl.textContent = text || ''; }
+  function clearNotices(){ noticeEl.textContent = ''; loginMsg.textContent=''; regMsg.textContent=''; }
 
-  tabLogin.onclick = () => {
+  /******** Tabs logic (fixed — корректно переключает формы) *********/
+  function showLoginTab(){
     tabLogin.classList.add('active'); tabRegister.classList.remove('active');
-    loginForm.style.display = 'flex'; registerForm.style.display = 'none';
-    showMenuMessage('');
-  };
-  tabRegister.onclick = () => {
+    loginForm.style.display = 'flex'; loginForm.setAttribute('aria-hidden','false');
+    registerForm.style.display = 'none'; registerForm.setAttribute('aria-hidden','true');
+    clearNotices();
+    loginNick.focus();
+  }
+  function showRegisterTab(){
     tabRegister.classList.add('active'); tabLogin.classList.remove('active');
-    registerForm.style.display = 'flex'; loginForm.style.display = 'none';
-    showMenuMessage('');
-  };
+    registerForm.style.display = 'flex'; registerForm.setAttribute('aria-hidden','false');
+    loginForm.style.display = 'none'; loginForm.setAttribute('aria-hidden','true');
+    clearNotices();
+    regNick.focus();
+  }
+  tabLogin.addEventListener('click', showLoginTab);
+  tabRegister.addEventListener('click', showRegisterTab);
 
-  function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length >= 2 && loginPassword.value.trim().length >= 3); }
-  function validateRegBtn(){ regBtn.disabled = !(regNick.value.trim().length >= 2 && regPassword.value.trim().length >= 3); }
-
+  /******** simple validators *********/
+  function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length>=2 && loginPassword.value.trim().length>=3); }
+  function validateRegBtn(){ regBtn.disabled = !(regNick.value.trim().length>=2 && regPassword.value.trim().length>=3); }
   [loginNick, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
   [regNick, regPassword].forEach(i=>i.addEventListener('input', validateRegBtn));
 
-  let currentUser = null; // object from users table {id, nickname, password, crystals}
-  let crystalsCollected = 0;
-
-  /*************** Helper: bcrypt wrappers (async) ***************/
-  // NOTE: bcryptjs runs in JS; expensive hashing on client — okay for small user base.
-  function hashPassword(password, rounds = 10) {
-    return new Promise((resolve, reject) => {
+  /******** bcrypt helpers (wrap callbacks into Promises) *********/
+  function hashPassword(password, rounds=10){
+    return new Promise((resolve,reject)=>{
       bcrypt.genSalt(rounds, (err, salt) => {
-        if (err) return reject(err);
+        if(err) return reject(err);
         bcrypt.hash(password, salt, (err2, hash) => err2 ? reject(err2) : resolve(hash));
       });
     });
   }
-  function comparePassword(password, hash) {
-    return new Promise((resolve, reject) => {
+  function comparePassword(password, hash){
+    return new Promise((resolve,reject)=>{
       bcrypt.compare(password, hash, (err, same) => err ? reject(err) : resolve(same));
     });
   }
 
-  /*************** REGISTER (hash password then insert) ***************/
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    regMsg.textContent = '';
-    regBtn.disabled = true;
+  /******** Auth state & user data *********/
+  let currentUser = null; // will store user record { id, nickname, password, crystals }
+  let crystalsCollected = 0;
+  let saveTimer = null; // debounced save
+
+  async function saveProgressDebounced(){
+    // debounce so we don't spam DB on each crystal
+    if(saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=> saveProgress().catch(e=>console.warn(e)), 800);
+  }
+
+  async function saveProgress(){
+    if(!currentUser) return;
+    try{
+      const { error } = await supabase.from('users').update({ crystals: crystalsCollected }).eq('id', currentUser.id);
+      if(error) console.warn('saveProgress error', error);
+      else currentUser.crystals = crystalsCollected;
+    }catch(e){ console.error('saveProgress ex', e); }
+  }
+
+  /******** REGISTER: hash password -> insert user *********/
+  registerForm.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    regMsg.textContent = ''; regBtn.disabled = true;
     const nick = regNick.value.trim();
     const pass = regPassword.value.trim();
-
-    try {
+    try{
       // check existing nickname
       const { data: existing, error: selErr } = await supabase.from('users').select('id').eq('nickname', nick).maybeSingle();
-      if (selErr) throw selErr;
-      if (existing) {
-        regMsg.textContent = 'Nickname already taken';
-        regBtn.disabled = false;
-        return;
-      }
+      if(selErr) throw selErr;
+      if(existing){ regMsg.textContent = 'Nickname already taken'; regBtn.disabled=false; return; }
 
-      // hash password on client
+      // hash password (client-side)
+      showNotice('Хэшируем пароль и создаём аккаунт...');
       const hashed = await hashPassword(pass, 10);
 
-      // insert user record (id autogenerated by Supabase)
-      const { error: insertErr } = await supabase.from('users').insert([{ nickname: nick, password: hashed, crystals: 0 }]);
-      if (insertErr) throw insertErr;
+      // insert
+      const { data, error: insertErr } = await supabase.from('users').insert([{ nickname: nick, password: hashed, crystals: 0 }]).select().maybeSingle();
+      if(insertErr) throw insertErr;
 
-      showMenuMessage('Registered successfully — войдите, пожалуйста.');
-      // switch to login tab automatically
-      tabLogin.click();
-      regNick.value = '';
-      regPassword.value = '';
-    } catch (err) {
+      showNotice('Регистрация успешна — теперь войдите.');
+      // switch to login tab
+      showLoginTab();
+      regNick.value=''; regPassword.value='';
+    }catch(err){
       console.error(err);
       regMsg.textContent = (err && err.message) ? err.message : 'Registration failed';
-    } finally {
-      regBtn.disabled = false;
-    }
+    }finally{ regBtn.disabled = false; setTimeout(()=>showNotice(''), 2200); }
   });
 
-  /*************** LOGIN (fetch user by nick, compare bcrypt, set currentUser) ***************/
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginMsg.textContent = '';
-    loginBtn.disabled = true;
+  /******** LOGIN: fetch by nick, compare bcrypt, set currentUser *********/
+  loginForm.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    loginMsg.textContent=''; loginBtn.disabled = true;
     const nick = loginNick.value.trim();
     const pass = loginPassword.value.trim();
-
-    try {
+    try{
+      showNotice('Проверяем данные...');
       const { data: user, error } = await supabase.from('users').select('*').eq('nickname', nick).maybeSingle();
-      if (error) throw error;
-      if (!user) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        loginBtn.disabled = false;
-        return;
-      }
+      if(error) throw error;
+      if(!user){ loginMsg.textContent = 'Invalid nickname or password'; loginBtn.disabled=false; showNotice(''); return; }
 
-      // compare given password with stored hash
       const ok = await comparePassword(pass, user.password);
-      if (!ok) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        loginBtn.disabled = false;
-        return;
-      }
+      if(!ok){ loginMsg.textContent = 'Invalid nickname or password'; loginBtn.disabled=false; showNotice(''); return; }
 
       // success
       currentUser = user;
       crystalsCollected = user.crystals || 0;
       counterNumber.textContent = crystalsCollected;
-      loginNick.value = '';
-      loginPassword.value = '';
-      startGame();
-    } catch (err) {
+      loginNick.value=''; loginPassword.value=''; showNotice('');
+      enterGameUI();
+    }catch(err){
       console.error(err);
       loginMsg.textContent = (err && err.message) ? err.message : 'Login failed';
-    } finally {
-      loginBtn.disabled = false;
-    }
+      showNotice('');
+    }finally{ loginBtn.disabled=false; }
   });
 
-  /*************** LOGOUT ***************/
-  document.getElementById('header').addEventListener('dblclick', async () => {
-    // Save progress then reset
-    try { await saveProgress(); } catch(e){ console.warn('save on logout failed', e); }
+  /******** LOGOUT (double-click header) *********/
+  header.addEventListener('dblclick', async ()=>{
+    try{ await saveProgress(); }catch(e){ console.warn(e); }
     currentUser = null;
     crystalsCollected = 0;
     counterNumber.textContent = '0';
-    document.getElementById('menu').style.display = 'flex';
-    document.getElementById('header').style.display = 'none';
-    document.getElementById('game').style.display = 'none';
-    document.getElementById('counter').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
-    gameRunning = false;
+    leaveGameUI();
   });
 
-  async function saveProgress(){
-    if (!currentUser) return;
-    try {
-      const { error } = await supabase.from('users').update({ crystals: crystalsCollected }).eq('id', currentUser.id);
-      if (error) console.warn('saveProgress error', error);
-      else {
-        // update local copy
-        currentUser.crystals = crystalsCollected;
-      }
-    } catch (err) {
-      console.error('saveProgress exception', err);
-    }
+  function enterGameUI(){
+    // reset world etc
+    menu.style.display = 'none';
+    header.style.display = 'flex';
+    gameCanvas.style.display = 'block';
+    counterWrap.style.display = 'flex';
+    controls.style.display = 'block';
+    // focus game
+    spawnPlayer();
+    if(!gameRunning){ gameRunning = true; resizeCanvas(); gameLoop(); }
   }
 
-  /*************** PARTICLES (menu background) ***************/
+  function leaveGameUI(){
+    menu.style.display = 'flex';
+    header.style.display = 'none';
+    gameCanvas.style.display = 'none';
+    counterWrap.style.display = 'none';
+    controls.style.display = 'none';
+    gameRunning = false;
+  }
+
+  /******** PARTCILES (nice white floating dots) *********/
   const pCanvas = document.getElementById('particles');
   const pCtx = pCanvas.getContext('2d');
   let pw = window.innerWidth, ph = window.innerHeight;
@@ -321,17 +318,20 @@
 
   class Particle {
     constructor(){
+      this.reset();
+    }
+    reset(){
       this.x = Math.random()*pw;
-      this.y = Math.random()*ph;
-      this.r = 1 + Math.random()*3;
-      this.vx = (Math.random()-0.5)*0.4;
-      this.vy = -(0.2 + Math.random()*0.6);
-      this.alpha = 0.2 + Math.random()*0.6;
+      this.y = ph + Math.random()*200;
+      this.r = 0.6 + Math.random()*3.2;
+      this.vx = (Math.random()-0.5)*0.6;
+      this.vy = - (0.3 + Math.random()*1.0);
+      this.alpha = 0.15 + Math.random()*0.6;
     }
     step(){
       this.x += this.vx;
       this.y += this.vy;
-      if(this.y < -10 || this.x < -20 || this.x > pw+20){ this.x = Math.random()*pw; this.y = ph + Math.random()*40; }
+      if(this.y < -20 || this.x < -40 || this.x > pw + 40) this.reset();
     }
     draw(){
       pCtx.beginPath();
@@ -340,89 +340,58 @@
       pCtx.fill();
     }
   }
-  const particles = Array.from({length:80}, ()=>new Particle());
+  const particles = Array.from({length:110}, ()=>new Particle());
   (function animParticles(){
     pCtx.clearRect(0,0,pw,ph);
     for(const p of particles){ p.step(); p.draw(); }
     requestAnimationFrame(animParticles);
   })();
 
-  /*************** GAME (integrated from your original code) ***************/
+  /******** GAME CODE (integrated) *********/
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
-  function resizeCanvas() {
+  function resizeCanvas(){
     canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - document.getElementById('header').offsetHeight - 20;
+    canvas.height = window.innerHeight - (header.offsetHeight || 70) - 20;
   }
-  window.addEventListener('resize', () => { resizeCanvas(); if(gameRunning) draw(); });
+  window.addEventListener('resize', ()=>{ resizeCanvas(); if(gameRunning) draw(); });
   resizeCanvas();
 
   const tileSize = 40;
   const chunkSize = 16;
-
   const chunks = new Map();
-  const crystals = new Map(); // key: "cx,cy" -> { x,y }
-
-  const player = {
-    x: 0,
-    y: 0,
-    radius: tileSize / 3,
-    speed: 3,
-    color: '#4cc9f0'
-  };
-
+  const crystals = new Map(); // key "cx,cy" => pos
+  const player = { x:0, y:0, radius: tileSize/3, speed:3, color:'#4cc9f0' };
   let keys = { w:false, a:false, s:false, d:false };
-  let collectedSet = new Set(); // in-memory only (since your table has no 'collected' array)
+  let collectedSet = new Set(); // per-session collected keys (not persisted)
 
-  function generateChunk(cx, cy) {
-    let chunk = [];
-    for (let y = 0; y < chunkSize; y++) {
-      let row = [];
-      for (let x = 0; x < chunkSize; x++) {
-        if (x > 0 && y > 0 && x < chunkSize - 1 && y < chunkSize - 1) {
-          row.push(Math.random() < 0.1 ? 1 : 0);
-        } else {
-          row.push(Math.random() < 0.5 ? 1 : 0);
-        }
+  function generateChunk(cx, cy){
+    const chunk = [];
+    for(let y=0;y<chunkSize;y++){
+      const row = [];
+      for(let x=0;x<chunkSize;x++){
+        if(x>0 && y>0 && x<chunkSize-1 && y<chunkSize-1) row.push(Math.random() < 0.1 ? 1 : 0);
+        else row.push(Math.random() < 0.5 ? 1 : 0);
       }
       chunk.push(row);
     }
+    // random exits
+    if(Math.random() < 0.6){ const ey = Math.floor(Math.random()*(chunkSize-2))+1; chunk[ey][0]=0; }
+    if(Math.random() < 0.6){ const ey = Math.floor(Math.random()*(chunkSize-2))+1; chunk[ey][chunkSize-1]=0; }
+    if(Math.random() < 0.6){ const ex = Math.floor(Math.random()*(chunkSize-2))+1; chunk[0][ex]=0; }
+    if(Math.random() < 0.6){ const ex = Math.floor(Math.random()*(chunkSize-2))+1; chunk[chunkSize-1][ex]=0; }
 
-    if (Math.random() < 0.6) {
-      const exitLeftY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[exitLeftY][0] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitRightY = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[exitRightY][chunkSize - 1] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitTopX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[0][exitTopX] = 0;
-    }
-    if (Math.random() < 0.6) {
-      const exitBottomX = Math.floor(Math.random() * (chunkSize - 2)) + 1;
-      chunk[chunkSize - 1][exitBottomX] = 0;
-    }
-
-    if (Math.random() < 0.15) {
-      let freeCells = [];
-      for (let y = 1; y < chunkSize - 1; y++) {
-        for (let x = 1; x < chunkSize - 1; x++) {
-          if (chunk[y][x] === 0) {
-            freeCells.push({ x, y });
-          }
-        }
-      }
-      if (freeCells.length > 0) {
-        const chosen = freeCells[Math.floor(Math.random() * freeCells.length)];
+    if(Math.random() < 0.15){
+      const free = [];
+      for(let y=1;y<chunkSize-1;y++) for(let x=1;x<chunkSize-1;x++) if(chunk[y][x]===0) free.push({x,y});
+      if(free.length>0){
+        const chosen = free[Math.floor(Math.random()*free.length)];
         const key = `${cx},${cy}`;
-        // don't create a crystal here if it's already collected in this session
-        if (!collectedSet.has(key)) {
-          const crystalX = cx * chunkSize * tileSize + chosen.x * tileSize + tileSize / 2;
-          const crystalY = cy * chunkSize * tileSize + chosen.y * tileSize + tileSize / 2;
-          crystals.set(key, { x: crystalX, y: crystalY });
+        if(!collectedSet.has(key)){
+          const crystalX = cx * chunkSize * tileSize + chosen.x*tileSize + tileSize/2;
+          const crystalY = cy * chunkSize * tileSize + chosen.y*tileSize + tileSize/2;
+          crystals.set(key, { x:crystalX, y:crystalY });
         }
       }
     }
@@ -430,39 +399,32 @@
     return chunk;
   }
 
-  function getChunk(cx, cy) {
-    const key = `${cx},${cy}`;
-    if (!chunks.has(key)) {
-      chunks.set(key, generateChunk(cx, cy));
-    }
-    return chunks.get(key);
+  function getChunk(cx, cy){
+    const k = `${cx},${cy}`;
+    if(!chunks.has(k)) chunks.set(k, generateChunk(cx, cy));
+    return chunks.get(k);
   }
 
-  function circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
-    const nearestX = Math.max(rx, Math.min(cx, rx + rw));
-    const nearestY = Math.max(ry, Math.min(cy, ry + rh));
+  function circleRectCollision(cx, cy, radius, rx, ry, rw, rh){
+    const nearestX = Math.max(rx, Math.min(cx, rx+rw));
+    const nearestY = Math.max(ry, Math.min(cx, ry+rh));
     const dx = cx - nearestX;
     const dy = cy - nearestY;
-    return (dx * dx + dy * dy) < (radius * radius);
+    return (dx*dx + dy*dy) < (radius*radius);
   }
 
-  function canMoveTo(x, y) {
-    const playerRadius = player.radius;
-    const cx = Math.floor(x / (tileSize * chunkSize));
-    const cy = Math.floor(y / (tileSize * chunkSize));
-
-    for (let ny = cy - 1; ny <= cy + 1; ny++) {
-      for (let nx = cx - 1; nx <= cx + 1; nx++) {
+  function canMoveTo(x, y){
+    const cx = Math.floor(x / (tileSize*chunkSize));
+    const cy = Math.floor(y / (tileSize*chunkSize));
+    for(let ny = cy-1; ny<=cy+1; ny++){
+      for(let nx = cx-1; nx<=cx+1; nx++){
         const chunk = getChunk(nx, ny);
-        for (let ty = 0; ty < chunkSize; ty++) {
-          for (let tx = 0; tx < chunkSize; tx++) {
-            if (chunk[ty][tx] === 1) {
-              const wallX = nx * chunkSize * tileSize + tx * tileSize;
-              const wallY = ny * chunkSize * tileSize + ty * tileSize;
-
-              if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) {
-                return false;
-              }
+        for(let ty=0; ty<chunkSize; ty++){
+          for(let tx=0; tx<chunkSize; tx++){
+            if(chunk[ty][tx] === 1){
+              const wallX = nx*chunkSize*tileSize + tx*tileSize;
+              const wallY = ny*chunkSize*tileSize + ty*tileSize;
+              if(circleRectCollision(x,y,player.radius,wallX,wallY,tileSize,tileSize)) return false;
             }
           }
         }
@@ -471,41 +433,37 @@
     return true;
   }
 
-  function spawnPlayer() {
-    const chunk = getChunk(0, 0);
-    for (let y = 1; y < chunkSize - 1; y++) {
-      for (let x = 1; x < chunkSize - 1; x++) {
-        if (chunk[y][x] === 0) {
-          player.x = x * tileSize + tileSize / 2;
-          player.y = y * tileSize + tileSize / 2;
+  function spawnPlayer(){
+    const chunk = getChunk(0,0);
+    for(let y=1;y<chunkSize-1;y++){
+      for(let x=1;x<chunkSize-1;x++){
+        if(chunk[y][x] === 0){
+          player.x = x*tileSize + tileSize/2;
+          player.y = y*tileSize + tileSize/2;
           return;
         }
       }
     }
-    player.x = tileSize * chunkSize / 2;
-    player.y = tileSize * chunkSize / 2;
+    player.x = tileSize*chunkSize/2;
+    player.y = tileSize*chunkSize/2;
   }
 
-  function drawWalls() {
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
-    const camX = player.x - canvas.width / 2;
-    const camY = player.y - canvas.height / 2;
-
-    const leftChunk = Math.floor(camX / (tileSize * chunkSize)) - 1;
-    const rightChunk = Math.floor((camX + canvas.width) / (tileSize * chunkSize)) + 1;
-    const topChunk = Math.floor(camY / (tileSize * chunkSize)) - 1;
-    const bottomChunk = Math.floor((camY + canvas.height) / (tileSize * chunkSize)) + 1;
-
-    for (let cy = topChunk; cy <= bottomChunk; cy++) {
-      for (let cx = leftChunk; cx <= rightChunk; cx++) {
+  function drawWalls(){
+    ctx.strokeStyle = 'white'; ctx.lineWidth = 2;
+    const camX = player.x - canvas.width/2;
+    const camY = player.y - canvas.height/2;
+    const leftChunk = Math.floor(camX/(tileSize*chunkSize)) -1;
+    const rightChunk = Math.floor((camX+canvas.width)/(tileSize*chunkSize)) +1;
+    const topChunk = Math.floor(camY/(tileSize*chunkSize)) -1;
+    const bottomChunk = Math.floor((camY+canvas.height)/(tileSize*chunkSize)) +1;
+    for(let cy=topChunk; cy<=bottomChunk; cy++){
+      for(let cx=leftChunk; cx<=rightChunk; cx++){
         const chunk = getChunk(cx, cy);
-
-        for (let y = 0; y < chunkSize; y++) {
-          for (let x = 0; x < chunkSize; x++) {
-            if (chunk[y][x] === 1) {
-              const px = cx * chunkSize * tileSize + x * tileSize - camX;
-              const py = cy * chunkSize * tileSize + y * tileSize - camY;
+        for(let y=0;y<chunkSize;y++){
+          for(let x=0;x<chunkSize;x++){
+            if(chunk[y][x]===1){
+              const px = cx*chunkSize*tileSize + x*tileSize - camX;
+              const py = cy*chunkSize*tileSize + y*tileSize - camY;
               ctx.strokeRect(px, py, tileSize, tileSize);
             }
           }
@@ -517,111 +475,88 @@
   const crystalImage = new Image();
   crystalImage.src = 'greencristal.png';
 
-  function drawCrystals() {
-    const camX = player.x - canvas.width / 2;
-    const camY = player.y - canvas.height / 2;
-
-    for (const [key, pos] of crystals) {
-      const px = pos.x - camX;
-      const py = pos.y - camY;
+  function drawCrystals(){
+    const camX = player.x - canvas.width/2;
+    const camY = player.y - canvas.height/2;
+    for(const [key,pos] of crystals){
+      const px = pos.x - camX; const py = pos.y - camY;
       const size = tileSize;
-      ctx.drawImage(crystalImage, px - size / 2, py - size / 2, size, size);
+      ctx.drawImage(crystalImage, px - size/2, py - size/2, size, size);
     }
   }
 
-  async function collectCrystal() {
-    for (const [key, pos] of crystals) {
-      const dx = player.x - pos.x;
-      const dy = player.y - pos.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < player.radius + tileSize / 2) {
+  async function collectCrystal(){
+    for(const [key,pos] of crystals){
+      const dx = player.x - pos.x; const dy = player.y - pos.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < player.radius + tileSize/2){
         crystals.delete(key);
         collectedSet.add(key);
         crystalsCollected++;
         counterNumber.textContent = crystalsCollected;
-        // persist crystals count to Supabase
-        try {
-          await saveProgress();
-        } catch (err) {
-          console.error('Failed to persist collect:', err);
-        }
+        // persist (debounced)
+        saveProgressDebounced();
         break;
       }
     }
   }
 
-  function update() {
-    let newX = player.x;
-    let newY = player.y;
-    if (keys.w) newY -= player.speed;
-    if (keys.s) newY += player.speed;
-    if (keys.a) newX -= player.speed;
-    if (keys.d) newX += player.speed;
-
-    if (canMoveTo(newX, newY)) {
-      player.x = newX;
-      player.y = newY;
-    } else if (canMoveTo(player.x, newY)) {
-      player.y = newY;
-    } else if (canMoveTo(newX, player.y)) {
-      player.x = newX;
-    }
+  function update(){
+    let newX = player.x; let newY = player.y;
+    if(keys.w) newY -= player.speed;
+    if(keys.s) newY += player.speed;
+    if(keys.a) newX -= player.speed;
+    if(keys.d) newX += player.speed;
+    if(canMoveTo(newX,newY)){ player.x=newX; player.y=newY; }
+    else if(canMoveTo(player.x,newY)) player.y = newY;
+    else if(canMoveTo(newX,player.y)) player.x = newX;
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
     drawWalls();
     drawCrystals();
-
+    // player centered
     ctx.fillStyle = player.color;
     ctx.beginPath();
-    const px = canvas.width / 2;
-    const py = canvas.height / 2;
-    ctx.arc(px, py, player.radius, 0, 2 * Math.PI);
+    ctx.arc(canvas.width/2, canvas.height/2, player.radius, 0, Math.PI*2);
     ctx.fill();
   }
 
   let gameRunning = false;
-  function gameLoop() {
-    if (!gameRunning) return;
+  function gameLoop(){
+    if(!gameRunning) return;
     update();
     collectCrystal();
     draw();
     requestAnimationFrame(gameLoop);
   }
 
-  window.addEventListener('keydown', e => {
+  window.addEventListener('keydown', e=>{
     const k = e.key.toLowerCase();
-    if (k in keys) keys[k] = true;
+    if(k in keys) keys[k] = true;
   });
-  window.addEventListener('keyup', e => {
+  window.addEventListener('keyup', e=>{
     const k = e.key.toLowerCase();
-    if (k in keys) keys[k] = false;
+    if(k in keys) keys[k] = false;
   });
 
-  /*************** Start / helpers ***************/
-  function startGame(){
-    // Reset world
-    chunks.clear();
-    crystals.clear();
-    collectedSet.clear();
+  // on image load, nothing special
+  crystalImage.onload = ()=>{};
 
-    document.getElementById('menu').style.display = 'none';
-    document.getElementById('header').style.display = 'flex';
-    document.getElementById('game').style.display = 'block';
-    document.getElementById('counter').style.display = 'flex';
-    document.getElementById('controls').style.display = 'block';
+  // initial focus
+  loginNick.focus();
 
-    spawnPlayer();
-    if (!gameRunning) {
-      gameRunning = true;
-      resizeCanvas();
-      gameLoop();
+  // Prevent accidental text selection during double-click header, keep UX clean
+  header.style.userSelect = 'none';
+
+  // helpful: save progress before unload
+  window.addEventListener('beforeunload', async (e)=>{
+    if(currentUser){
+      try{ await saveProgress(); }catch(e){ /* ignore */ }
     }
-  }
+  });
 
-  // ensure crystal image loaded (no-op)
-  crystalImage.onload = () => {};
   </script>
 </body>
 </html>
