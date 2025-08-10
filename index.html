@@ -20,7 +20,7 @@
     #menu {
       position:fixed; inset:0;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background: rgba(0,0,0,0.95);
+      background: rgba(0,0,0,0.92);
       z-index:30;
       pointer-events:auto;
     }
@@ -31,20 +31,22 @@
     .tab.active { border-bottom-color:#fff; font-weight:700; }
 
     form {
-      width:340px;
-      background:#111;
-      padding:18px;
-      border-radius:10px;
-      display:flex; flex-direction:column; gap:10px;
+      width:360px;
+      background:#0d0d0d;
+      padding:20px;
+      border-radius:12px;
+      display:flex; flex-direction:column; gap:12px;
       z-index:32;
+      box-shadow: 0 6px 30px rgba(0,0,0,0.6);
     }
     label { font-size:13px; color:#ddd; }
     input {
-      padding:10px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; outline:none;
+      padding:12px; border-radius:8px; border:1px solid #2a2a2a; background:#111; color:#fff; outline:none;
     }
-    input:focus { border-color:#666; background:#2a2a2a; }
+    input::placeholder { color:#777; }
+    input:focus { border-color:#444; background:#151515; }
     button {
-      padding:10px; border-radius:6px; border:2px solid #fff; background:#000; color:#fff; font-weight:700; cursor:pointer;
+      padding:12px; border-radius:8px; border:1px solid #fff; background:#000; color:#fff; font-weight:700; cursor:pointer;
     }
     button:disabled { opacity:0.45; cursor:not-allowed; }
 
@@ -54,24 +56,27 @@
       padding:10px 14px; height:70px; box-sizing:border-box;
       color:#fff; z-index:15;
     }
-    #header img { width:40px; height:40px; border-radius:50%; }
-    #header h1 { margin:0; font-weight:normal; color:#fff; }
+    #header img { width:44px; height:44px; border-radius:10px; }
+    #header h1 { margin:0; font-weight:600; color:#fff; letter-spacing:1px; }
 
     canvas#game {
       display:block; background:#000; width:100vw; height:calc(100vh - 90px);
-      border:1px solid rgba(255,255,255,0.04); box-sizing:border-box;
+      border:1px solid rgba(255,255,255,0.03); box-sizing:border-box;
     }
 
     #counter {
-      position:fixed; top:12px; right:20px; display:flex; align-items:center; gap:8px; z-index:15;
+      position:fixed; top:14px; right:20px; display:flex; align-items:center; gap:8px; z-index:15;
       color:#fff; font-weight:700;
     }
     #counter img { width:28px; height:28px; }
 
-    #notice { color:#f66; margin-top:8px; font-size:13px; text-align:center; }
+    #notice { color:#f66; margin-top:6px; font-size:13px; text-align:center; min-height:18px; }
 
     /* small helper */
     #controls { position:fixed; left:12px; bottom:12px; color:#aaa; font-size:13px; z-index:15; }
+    @media (max-width:420px) {
+      form { width:92vw; padding:14px; }
+    }
   </style>
 </head>
 <body>
@@ -80,14 +85,14 @@
   <canvas id="particles"></canvas>
 
   <!-- Menu UI -->
-  <div id="menu">
-    <div class="tabs" style="z-index:32">
-      <div id="tab-login" class="tab active">Login</div>
-      <div id="tab-register" class="tab">Register</div>
+  <div id="menu" role="dialog" aria-label="menu">
+    <div class="tabs" style="z-index:32" role="tablist">
+      <div id="tab-login" class="tab active" role="tab">Login</div>
+      <div id="tab-register" class="tab" role="tab">Register</div>
     </div>
 
     <!-- LOGIN: nickname + password -->
-    <form id="login-form" style="display:flex">
+    <form id="login-form" style="display:flex" autocomplete="off">
       <label for="login-nick">Nickname</label>
       <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
 
@@ -99,12 +104,12 @@
     </form>
 
     <!-- REGISTER: nickname + password -->
-    <form id="register-form" style="display:none">
-      <label for="reg-password">Password (min 6)</label>
-      <input id="reg-password" type="password" placeholder="password" minlength="6" required />
-
+    <form id="register-form" style="display:none" autocomplete="off">
       <label for="reg-nick">Nickname</label>
       <input id="reg-nick" type="text" placeholder="Your nickname" maxlength="20" required />
+
+      <label for="reg-password">Password (min 6)</label>
+      <input id="reg-password" type="password" placeholder="password" minlength="6" required />
 
       <button id="reg-btn" type="submit" disabled>Register</button>
       <div id="reg-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
@@ -116,7 +121,9 @@
   <!-- Header (shown after login) -->
   <div id="header" style="display:none">
     <img src="knoxeralogo.png" alt="logo" />
-    <h1>Knoxera</h1>
+    <div>
+      <h1>Knoxera</h1>
+    </div>
   </div>
 
   <!-- Game canvas -->
@@ -130,17 +137,14 @@
 
   <div id="controls" style="display:none">WASD / Arrow keys to move</div>
 
-  <!-- Supabase UMD (must be before main script) -->
+  <!-- Supabase UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
-  <!-- bcrypt.js (must be before main script) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"
-    integrity="sha512-wW8jHyaIW2hJbFQbMYRP1hLuVAFHbnwG+uGd6U+Zm7c+3l7GqBP6xzBz0f6Se6yzl3nOVpjU5dY6MZlKLEPt0A=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- bcrypt.js (without integrity to avoid SRI issues) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
 
-  <!-- MAIN script -->
+  <!-- MAIN -->
   <script>
-  // Wrap in DOMContentLoaded to be safe
   document.addEventListener('DOMContentLoaded', () => {
 
     // ---------- Supabase init ----------
@@ -159,7 +163,6 @@
       }
     }
 
-    // if bcrypt missing -> show message (but try to proceed)
     if (typeof bcrypt === 'undefined') {
       console.error('bcrypt is not loaded. Check network / CDN.');
       showMenuMessage('Ошибка: bcrypt не загружен. Проверь подключение интернета.');
@@ -188,8 +191,8 @@
     const loginBtn = document.getElementById('login-btn');
     const loginMsg = document.getElementById('login-msg');
 
-    const regPassword = document.getElementById('reg-password');
     const regNick = document.getElementById('reg-nick');
+    const regPassword = document.getElementById('reg-password');
     const regBtn = document.getElementById('reg-btn');
     const regMsg = document.getElementById('reg-msg');
 
@@ -214,24 +217,24 @@
         this.r = 1 + Math.random()*5;
         this.vx = (Math.random()-0.5)*0.8;
         this.vy = (Math.random()-0.5)*0.8;
-        this.alpha = 0.3 + Math.random()*0.6;
+        this.alpha = 0.2 + Math.random()*0.7;
         this.phase = Math.random()*Math.PI*2;
       }
       step(){
         this.x += this.vx;
         this.y += this.vy;
-        this.phase += 0.03;
-        if(this.x < -60) this.x = pw + 60;
-        if(this.x > pw + 60) this.x = -60;
-        if(this.y < -60) this.y = ph + 60;
-        if(this.y > ph + 60) this.y = -60;
+        this.phase += 0.02 + Math.random()*0.02;
+        if(this.x < -80) this.x = pw + 80;
+        if(this.x > pw + 80) this.x = -80;
+        if(this.y < -80) this.y = ph + 80;
+        if(this.y > ph + 80) this.y = -80;
       }
       draw(){
         pCtx.beginPath();
-        const a = Math.max(0.12, Math.min(1, this.alpha * (0.6 + 0.4*Math.sin(this.phase))));
+        const a = Math.max(0.08, Math.min(1, this.alpha * (0.5 + 0.5*Math.sin(this.phase))));
         pCtx.globalAlpha = a;
         pCtx.fillStyle = 'white';
-        pCtx.shadowBlur = 18;
+        pCtx.shadowBlur = 12;
         pCtx.shadowColor = 'white';
         pCtx.arc(this.x, this.y, this.r, 0, Math.PI*2);
         pCtx.fill();
@@ -253,7 +256,7 @@
       requestAnimationFrame(animParticles);
     })();
 
-    // ---------- Game code (kept from your version) ----------
+    // ---------- Game code (from your provided version, adapted to Supabase) ----------
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const counterNumber = document.getElementById('crystal-count');
@@ -455,6 +458,7 @@
           // persist to Supabase if user logged in
           try {
             if (currentUser && currentUser.id) {
+              // ensure collected on user object
               if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
               if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
               await supabaseClient
@@ -533,21 +537,18 @@
         return;
       }
       try {
-        const pass = regPassword.value;
         const nick = regNick.value.trim();
+        const pass = regPassword.value;
         if (!nick || !pass) { regMsg.textContent = 'Заполните поля'; regBtn.disabled = false; return; }
 
         showMenuMessage('Registering...');
 
-        // generate hash using bcrypt.js callbacks wrapped in Promise
+        // generate hash
         const hash = await new Promise((res, rej) => {
-          bcrypt.genSalt(10, (err, salt) => {
-            if (err) return rej(err);
-            bcrypt.hash(pass, salt, (err2, hashed) => err2 ? rej(err2) : res(hashed));
-          });
+          bcrypt.genSalt(10, (err, salt) => { if (err) return rej(err); bcrypt.hash(pass, salt, (err2, hashed) => err2 ? rej(err2) : res(hashed)); });
         });
 
-        // insert into users table
+        // try to insert - if nickname unique constraint exists, Supabase will return error
         const { data, error } = await supabaseClient
           .from('users')
           .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
@@ -667,7 +668,7 @@
       }
     }
 
-    // Logout via double-click header
+    // Logout via double-click header: save then return to menu
     document.getElementById('header').addEventListener('dblclick', async () => {
       try {
         if (currentUser && currentUser.id) {
@@ -697,7 +698,9 @@
       }
     });
 
-    // done DOMContentLoaded
+    // ensure crystal image loaded before starting draw loop visually (not necessary for logic)
+    crystalImage.onload = () => { /* noop */ };
+
   }); // DOMContentLoaded
   </script>
 </body>
