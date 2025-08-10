@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Knoxera</title>
   <link rel="icon" type="image/png" href="knoxeralogo.png" />
@@ -86,10 +86,9 @@
       <div id="tab-register" class="tab">Register</div>
     </div>
 
-    <!-- LOGIN: nickname + password -->
     <form id="login-form" style="display:flex">
-      <label for="login-nick">Nickname</label>
-      <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" placeholder="email@example.com" autocomplete="username" required />
 
       <label for="login-password">Password</label>
       <input id="login-password" type="password" placeholder="password" autocomplete="current-password" minlength="6" required />
@@ -98,8 +97,10 @@
       <div id="login-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
     </form>
 
-    <!-- REGISTER: nickname + password -->
     <form id="register-form" style="display:none">
+      <label for="reg-email">Email</label>
+      <input id="reg-email" type="email" placeholder="email@example.com" required />
+
       <label for="reg-password">Password (min 6)</label>
       <input id="reg-password" type="password" placeholder="password" minlength="6" required />
 
@@ -130,20 +131,28 @@
 
   <div id="controls" style="display:none">WASD / Arrow keys to move</div>
 
-  <!-- Load libs BEFORE main script -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-  <!-- Main script (runs after libs and after DOM elements above) -->
   <script>
-  /*************** SUPABASE INIT ***************/
-  // Твои значения (как просил) — оставил вставленными
-  const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
-  // UMD exposes a global named "supabase" with .createClient
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  /*************** FIREBASE CONFIG & INIT ***************/
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6kjiQCEjtI537KqmEN34NxOZ6BBIbC2c",
+    authDomain: "knoxera.firebaseapp.com",
+    projectId: "knoxera",
+    storageBucket: "knoxera.firebasestorage.app",
+    messagingSenderId: "207649077497",
+    appId: "1:207649077497:web:01e865716c790acf798a28",
+    measurementId: "G-913NRJWC1Z"
+  };
 
-  /*************** Helper to show message in menu ***************/
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // Helper to show message in menu
   function showMenuMessage(text, targetId=null){
     if(targetId){
       const el = document.getElementById(targetId);
@@ -159,6 +168,7 @@
   const tabRegister = document.getElementById('tab-register');
   const loginForm = document.getElementById('login-form');
   const registerForm = document.getElementById('register-form');
+  const menu = document.getElementById('menu');
 
   tabLogin.onclick = () => {
     tabLogin.classList.add('active'); tabRegister.classList.remove('active');
@@ -172,22 +182,67 @@
   };
 
   // login fields
-  const loginNick = document.getElementById('login-nick');
+  const loginEmail = document.getElementById('login-email');
   const loginPassword = document.getElementById('login-password');
   const loginBtn = document.getElementById('login-btn');
   const loginMsg = document.getElementById('login-msg');
 
   // register fields
+  const regEmail = document.getElementById('reg-email');
   const regPassword = document.getElementById('reg-password');
   const regNick = document.getElementById('reg-nick');
   const regBtn = document.getElementById('reg-btn');
   const regMsg = document.getElementById('reg-msg');
 
-  function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length >= 2 && loginPassword.value.trim().length >= 6); }
-  function validateRegBtn(){ regBtn.disabled = !(regPassword.value.trim().length >= 6 && regNick.value.trim().length >=2); }
+  function validateLoginBtn(){ loginBtn.disabled = !(loginEmail.checkValidity() && loginPassword.value.trim().length >= 6); }
+  function validateRegBtn(){ regBtn.disabled = !(regEmail.checkValidity() && regPassword.value.trim().length >= 6 && regNick.value.trim().length >=2); }
 
-  [loginNick, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
-  [regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
+  [loginEmail, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
+  [regEmail, regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
+
+  // Register
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    regMsg.textContent = '';
+    regBtn.disabled = true;
+    try {
+      const email = regEmail.value.trim();
+      const pass = regPassword.value;
+      const nick = regNick.value.trim();
+
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      const u = cred.user;
+      // create user document
+      await db.collection('users').doc(u.uid).set({
+        nickname: nick,
+        crystals: 0,
+        collected: []
+      });
+      // update profile displayName
+      await u.updateProfile({ displayName: nick });
+      showMenuMessage('Registered. Signing in...');
+      // auth.onAuthStateChanged will handle enter
+    } catch(err) {
+      regMsg.textContent = err.message;
+    } finally {
+      regBtn.disabled = false;
+    }
+  });
+
+  // Login
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginMsg.textContent = '';
+    loginBtn.disabled = true;
+    try {
+      await auth.signInWithEmailAndPassword(loginEmail.value.trim(), loginPassword.value);
+      // onAuthStateChanged handles next steps
+    } catch(err) {
+      loginMsg.textContent = err.message;
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
 
   /*************** PARTICLES (menu background) ***************/
   const pCanvas = document.getElementById('particles');
@@ -201,50 +256,31 @@
     constructor(){
       this.x = Math.random()*pw;
       this.y = Math.random()*ph;
-      this.r = 1 + Math.random()*5;
-      this.vx = (Math.random()-0.5)*0.8;
-      this.vy = (Math.random()-0.5)*0.8;
-      this.alpha = 0.3 + Math.random()*0.6;
-      this.phase = Math.random()*Math.PI*2;
+      this.r = 1 + Math.random()*3;
+      this.vx = (Math.random()-0.5)*0.4;
+      this.vy = -(0.2 + Math.random()*0.6);
+      this.alpha = 0.2 + Math.random()*0.6;
     }
     step(){
       this.x += this.vx;
       this.y += this.vy;
-      this.phase += 0.03;
-      if(this.x < -60) this.x = pw + 60;
-      if(this.x > pw + 60) this.x = -60;
-      if(this.y < -60) this.y = ph + 60;
-      if(this.y > ph + 60) this.y = -60;
+      if(this.y < -10 || this.x < -20 || this.x > pw+20){ this.x = Math.random()*pw; this.y = ph + Math.random()*40; }
     }
     draw(){
       pCtx.beginPath();
-      const a = Math.max(0.12, Math.min(1, this.alpha * (0.6 + 0.4*Math.sin(this.phase))));
-      pCtx.globalAlpha = a;
-      pCtx.fillStyle = 'white';
-      pCtx.shadowBlur = 18;
-      pCtx.shadowColor = 'white';
+      pCtx.fillStyle = `rgba(255,255,255,${this.alpha})`;
       pCtx.arc(this.x, this.y, this.r, 0, Math.PI*2);
       pCtx.fill();
-      pCtx.shadowBlur = 0;
-      pCtx.globalAlpha = 1;
     }
   }
-
-  const particles = Array.from({length:80}, () => new Particle());
+  const particles = Array.from({length:80}, ()=>new Particle());
   (function animParticles(){
     pCtx.clearRect(0,0,pw,ph);
-    // subtle gradient
-    const grad = pCtx.createLinearGradient(0,0,0,ph);
-    grad.addColorStop(0, 'rgba(255,255,255,0.01)');
-    grad.addColorStop(1, 'rgba(255,255,255,0.00)');
-    pCtx.fillStyle = grad;
-    pCtx.fillRect(0,0,pw,ph);
-
     for(const p of particles){ p.step(); p.draw(); }
     requestAnimationFrame(animParticles);
   })();
 
-  /*************** GAME (kept) ***************/
+  /*************** GAME (from your provided code) ***************/
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const counterNumber = document.getElementById('crystal-count');
@@ -273,8 +309,10 @@
   let crystalsCollected = 0;
   const keys = { w: false, a: false, s: false, d: false };
 
+  // collected set loaded from Firestore to keep crystals removed
   let collectedSet = new Set();
 
+  // Modified generateChunk: do not place crystal if already collected (key present in collectedSet)
   function generateChunk(cx, cy) {
     let chunk = [];
     for (let y = 0; y < chunkSize; y++) {
@@ -310,12 +348,15 @@
       let freeCells = [];
       for (let y = 1; y < chunkSize - 1; y++) {
         for (let x = 1; x < chunkSize - 1; x++) {
-          if (chunk[y][x] === 0) freeCells.push({ x, y });
+          if (chunk[y][x] === 0) {
+            freeCells.push({ x, y });
+          }
         }
       }
       if (freeCells.length > 0) {
         const chosen = freeCells[Math.floor(Math.random() * freeCells.length)];
         const key = `${cx},${cy}`;
+        // don't create a crystal here if it's already collected by this user
         if (!collectedSet.has(key)) {
           const crystalX = cx * chunkSize * tileSize + chosen.x * tileSize + tileSize / 2;
           const crystalY = cy * chunkSize * tileSize + chosen.y * tileSize + tileSize / 2;
@@ -329,7 +370,9 @@
 
   function getChunk(cx, cy) {
     const key = `${cx},${cy}`;
-    if (!chunks.has(key)) chunks.set(key, generateChunk(cx, cy));
+    if (!chunks.has(key)) {
+      chunks.set(key, generateChunk(cx, cy));
+    }
     return chunks.get(key);
   }
 
@@ -354,7 +397,10 @@
             if (chunk[ty][tx] === 1) {
               const wallX = nx * chunkSize * tileSize + tx * tileSize;
               const wallY = ny * chunkSize * tileSize + ty * tileSize;
-              if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) return false;
+
+              if (circleRectCollision(x, y, playerRadius, wallX, wallY, tileSize, tileSize)) {
+                return false;
+              }
             }
           }
         }
@@ -378,9 +424,11 @@
     player.y = tileSize * chunkSize / 2;
   }
 
+  // draw walls as in your code (strokeRect per tile)
   function drawWalls() {
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
+    // no beginPath/closePath because we use strokeRect
     const camX = player.x - canvas.width / 2;
     const camY = player.y - canvas.height / 2;
 
@@ -392,6 +440,7 @@
     for (let cy = topChunk; cy <= bottomChunk; cy++) {
       for (let cx = leftChunk; cx <= rightChunk; cx++) {
         const chunk = getChunk(cx, cy);
+
         for (let y = 0; y < chunkSize; y++) {
           for (let x = 0; x < chunkSize; x++) {
             if (chunk[y][x] === 1) {
@@ -411,41 +460,40 @@
   function drawCrystals() {
     const camX = player.x - canvas.width / 2;
     const camY = player.y - canvas.height / 2;
+
     for (const [key, pos] of crystals) {
       const px = pos.x - camX;
       const py = pos.y - camY;
-      const size = tileSize;
+      const size = tileSize; // bigger as requested
       ctx.drawImage(crystalImage, px - size / 2, py - size / 2, size, size);
     }
   }
-
-  // current user from DB
-  let currentUser = null; // object { id, nickname, crystals, collected }
 
   async function collectCrystal() {
     for (const [key, pos] of crystals) {
       const dx = player.x - pos.x;
       const dy = player.y - pos.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < player.radius + tileSize/2) {
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < player.radius + tileSize / 2) {
         crystals.delete(key);
+        // mark collected locally & persist
         collectedSet.add(key);
         crystalsCollected++;
         counterNumber.textContent = crystalsCollected;
-
-        // persist to Supabase
+        // persist to Firestore: add key to collected array and increment crystals
         try {
-          if (currentUser && currentUser.id) {
-            if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
-            if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
-            const { error } = await supabaseClient
-              .from('users')
-              .update({ crystals: crystalsCollected, collected: currentUser.collected })
-              .eq('id', currentUser.id);
-            if (error) console.error('persist collect error', error);
+          const u = auth.currentUser;
+          if (u) {
+            const userRef = db.collection('users').doc(u.uid);
+            await userRef.update({
+              collected: firebase.firestore.FieldValue.arrayUnion(key),
+              crystals: firebase.firestore.FieldValue.increment(1)
+            });
           }
-        } catch (e) { console.error(e); }
-        break;
+        } catch (err) {
+          console.error('Failed to persist collect:', err);
+        }
+        break; // only one per frame
       }
     }
   }
@@ -459,7 +507,8 @@
     if (keys.d) newX += player.speed;
 
     if (canMoveTo(newX, newY)) {
-      player.x = newX; player.y = newY;
+      player.x = newX;
+      player.y = newY;
     } else if (canMoveTo(player.x, newY)) {
       player.y = newY;
     } else if (canMoveTo(newX, player.y)) {
@@ -468,13 +517,16 @@
   }
 
   function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawWalls();
     drawCrystals();
+
+    // Player — center of screen, blue
     ctx.fillStyle = player.color;
     ctx.beginPath();
-    const px = canvas.width/2, py = canvas.height/2;
-    ctx.arc(px, py, player.radius, 0, Math.PI*2);
+    const px = canvas.width / 2;
+    const py = canvas.height / 2;
+    ctx.arc(px, py, player.radius, 0, 2 * Math.PI);
     ctx.fill();
   }
 
@@ -487,179 +539,86 @@
     requestAnimationFrame(gameLoop);
   }
 
-  window.addEventListener('keydown', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', e => { if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false; });
-
-  /*************** AUTH (Supabase + bcrypt) ***************/
-
-  // Register handler
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    regMsg.textContent = '';
-    regBtn.disabled = true;
-    try {
-      const pass = regPassword.value;
-      const nick = regNick.value.trim();
-      if (!nick || !pass) { regMsg.textContent = 'Заполните поля'; regBtn.disabled = false; return; }
-
-      showMenuMessage('Registering...');
-
-      // hash in browser
-      const hash = await new Promise((res, rej) => {
-        bcrypt.genSalt(10, (err, salt) => {
-          if (err) return rej(err);
-          bcrypt.hash(pass, salt, (err2, hashed) => err2 ? rej(err2) : res(hashed));
-        });
-      });
-
-      // insert user
-      const { data, error } = await supabaseClient
-        .from('users')
-        .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        regMsg.textContent = error.message || 'Registration failed';
-        showMenuMessage('');
-        regBtn.disabled = false;
-        return;
-      }
-
-      currentUser = data;
-      await afterSuccessfulAuth();
-      showMenuMessage('Registered and signed in.');
-    } catch (err) {
-      console.error(err);
-      regMsg.textContent = (err && err.message) ? err.message : 'Registration failed';
-      showMenuMessage('');
-    } finally {
-      regBtn.disabled = false;
-    }
+  window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+  });
+  window.addEventListener('keyup', e => {
+    if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
   });
 
-  // Login handler
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginMsg.textContent = '';
-    loginBtn.disabled = true;
-    try {
-      const nick = loginNick.value.trim();
-      const pass = loginPassword.value;
-      if (!nick || !pass) { loginMsg.textContent = 'Заполните поля'; loginBtn.disabled = false; return; }
-
-      showMenuMessage('Checking credentials...');
-
-      const { data, error } = await supabaseClient
-        .from('users')
-        .select('*')
-        .eq('nickname', nick)
-        .maybeSingle();
-
-      if (error || !data) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        showMenuMessage('');
-        loginBtn.disabled = false;
-        return;
-      }
-
-      const ok = await new Promise((res, rej) => {
-        bcrypt.compare(pass, data.password_hash, (err, same) => err ? rej(err) : res(same));
-      });
-
-      if (!ok) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        showMenuMessage('');
-        loginBtn.disabled = false;
-        return;
-      }
-
-      currentUser = data;
-      await afterSuccessfulAuth();
-      showMenuMessage('');
-    } catch (err) {
-      console.error(err);
-      loginMsg.textContent = (err && err.message) ? err.message : 'Login failed';
-      showMenuMessage('');
-    } finally {
-      loginBtn.disabled = false;
+  /*************** AUTH state handling & Firestore load ***************/
+  async function ensureUserDoc(uid, displayName) {
+    const ref = db.collection('users').doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({ nickname: displayName || 'Player', crystals: 0, collected: [] });
+      return { nickname: displayName || 'Player', crystals: 0, collected: [] };
     }
-  });
-
-  // After successful auth: load state and start game
-  async function afterSuccessfulAuth(){
-    try {
-      collectedSet = new Set(Array.isArray(currentUser.collected) ? currentUser.collected : []);
-      crystalsCollected = currentUser.crystals || 0;
-      counterNumber.textContent = crystalsCollected;
-
-      chunks.clear();
-      crystals.clear();
-
-      spawnPlayer();
-
-      document.getElementById('menu').style.display = 'none';
-      document.getElementById('header').style.display = 'flex';
-      document.getElementById('game').style.display = 'block';
-      document.getElementById('counter').style.display = 'flex';
-      document.getElementById('controls').style.display = 'block';
-
-      // show small nick
-      let existing = document.getElementById('headerNickSmall');
-      if (!existing) {
-        const span = document.createElement('div');
-        span.id = 'headerNickSmall';
-        span.style.fontSize = '12px';
-        span.style.color = '#bbb';
-        span.style.marginLeft = '8px';
-        span.textContent = currentUser.nickname || '';
-        document.getElementById('header').appendChild(span);
-      } else existing.textContent = currentUser.nickname || '';
-
-      if (!gameRunning) {
-        gameRunning = true;
-        resizeCanvas();
-        gameLoop();
-      }
-    } catch (err) {
-      console.error('afterSuccessfulAuth failed', err);
-      showMenuMessage('Load user data failed: ' + (err.message || err));
-    }
+    return snap.data();
   }
 
-  // Logout (double click header) - saves progress then returns to menu
-  document.getElementById('header').addEventListener('dblclick', async () => {
-    try {
-      if (currentUser && currentUser.id) {
-        try {
-          await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
-        } catch(e){ console.warn('save before logout failed', e); }
-      }
-    } catch(e){}
-    currentUser = null;
-    collectedSet = new Set();
-    crystalsCollected = 0;
-    counterNumber.textContent = crystalsCollected;
-    document.getElementById('menu').style.display = 'flex';
-    document.getElementById('header').style.display = 'none';
-    document.getElementById('game').style.display = 'none';
-    document.getElementById('counter').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
-    gameRunning = false;
-  });
-
-  // save progress on unload
-  window.addEventListener('beforeunload', async () => {
-    if (currentUser && currentUser.id) {
+  // Wait for auth state; only after that we load Firestore data
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      // hide menu, show header/game
       try {
-        await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
-      } catch(e){ /* ignore */ }
+        const data = await ensureUserDoc(user.uid, user.displayName || 'Player');
+        // load collected keys and crystals count
+        collectedSet = new Set(Array.isArray(data.collected) ? data.collected : []);
+        crystalsCollected = data.crystals || 0;
+        counterNumber.textContent = crystalsCollected;
+
+        // Reset world to clear any old generated data
+        chunks.clear();
+        crystals.clear();
+
+        // spawn player in initial free cell
+        spawnPlayer();
+
+        // show UI
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('header').style.display = 'flex';
+        document.getElementById('game').style.display = 'block';
+        document.getElementById('counter').style.display = 'flex';
+        document.getElementById('controls').style.display = 'block';
+
+        // start game loop if not already
+        if (!gameRunning) {
+          gameRunning = true;
+          resizeCanvas();
+          gameLoop();
+        }
+      } catch (err) {
+        // If Firestore read fails (offline or permission), show message but keep menu visible
+        console.error('Load user data failed:', err);
+        showMenuMessage('Load user data failed: ' + (err.message || err));
+        // Sign out to avoid inconsistent UI
+        await auth.signOut();
+      }
+    } else {
+      // show menu
+      document.getElementById('menu').style.display = 'flex';
+      document.getElementById('header').style.display = 'none';
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('counter').style.display = 'none';
+      document.getElementById('controls').style.display = 'none';
+      // stop game
+      gameRunning = false;
     }
   });
 
-  // no-op crystal image loader
-  crystalImage.onload = () => {};
+  // Logout via header click on header (add logout by clicking title) — simple touch: double-click header to logout
+  document.getElementById('header').addEventListener('dblclick', async () => {
+    try { await auth.signOut(); } catch(err){ console.error(err); }
+  });
 
+  // Small UX: if user closes tab and reopens, onAuthStateChanged will re-run and load data (avoids offline error)
+  // Important: make sure in Firebase Console Authentication Email/Password is enabled and Firestore rules allow reads/writes by authenticated users.
+
+  // Ensure crystal image loaded before starting draw loop visually (not necessary for logic)
+  crystalImage.onload = () => {
+    // no-op; loop starts when auth state triggers
+  };
   </script>
 </body>
 </html>
