@@ -1,221 +1,203 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Minimal Auth</title>
+<title>Game with Supabase Auth</title>
 <style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: 'Segoe UI', sans-serif;
-    background: #000;
-    color: white;
-    overflow: hidden;
-  }
-  canvas {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: -1;
-  }
-  .auth-box {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.6);
-    padding: 30px;
-    border-radius: 10px;
-    width: 300px;
-    text-align: center;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 0 15px rgba(255,255,255,0.15);
-  }
-  .tabs {
-    display: flex;
-    margin-bottom: 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.3);
-  }
-  .tab {
-    flex: 1;
-    padding: 10px;
-    background: transparent;
-    cursor: pointer;
-    border: none;
-    color: white;
-    font-size: 14px;
-    transition: background 0.3s, color 0.3s;
-  }
-  .tab.active {
-    background: white;
-    color: black;
-    font-weight: bold;
-    border-radius: 6px 6px 0 0;
-  }
-  input {
-    width: 100%;
-    padding: 10px;
-    margin: 8px 0;
-    border: none;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.1);
-    color: white;
-    outline: none;
-    font-size: 14px;
-    transition: background 0.3s;
-  }
-  input:focus {
-    background: rgba(255,255,255,0.2);
-  }
-  button {
-    width: 100%;
-    padding: 10px;
-    background: white;
-    border: none;
-    border-radius: 6px;
-    color: black;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background 0.3s, color 0.3s;
-  }
-  button:hover {
-    background: black;
-    color: white;
-    border: 1px solid white;
-  }
+    body,html {
+        margin:0;
+        padding:0;
+        height:100%;
+        overflow:hidden;
+        background:black;
+        color:white;
+        font-family:Arial,sans-serif;
+    }
+    #bg {
+        position:fixed;
+        top:0;left:0;
+        width:100%;
+        height:100%;
+        z-index:-1;
+    }
+    #menu {
+        position:absolute;
+        top:50%;
+        left:50%;
+        transform:translate(-50%,-50%);
+        background:rgba(0,0,0,0.7);
+        padding:20px;
+        border-radius:10px;
+        text-align:center;
+        box-shadow:0 0 20px rgba(255,255,255,0.2);
+    }
+    input {
+        display:block;
+        width:200px;
+        margin:10px auto;
+        padding:10px;
+        border:none;
+        border-radius:5px;
+        background:rgba(255,255,255,0.1);
+        color:white;
+        text-align:center;
+    }
+    button {
+        padding:10px 20px;
+        background:white;
+        color:black;
+        border:none;
+        border-radius:5px;
+        cursor:pointer;
+        margin-top:10px;
+    }
+    button:hover {
+        background:gray;
+    }
+    #game {
+        display:none;
+        width:100%;
+        height:100%;
+        background:#111;
+        color:white;
+    }
 </style>
 </head>
 <body>
 
 <canvas id="bg"></canvas>
 
-<div id="auth" class="auth-box">
-  <div class="tabs">
-    <button id="login-tab" class="tab active">Login</button>
-    <button id="register-tab" class="tab">Register</button>
-  </div>
-  
-  <div id="login-form">
-    <input type="text" id="login-nick" placeholder="Ник">
-    <input type="password" id="login-pass" placeholder="Пароль">
-    <button id="login-btn">Войти</button>
-  </div>
-  
-  <div id="register-form" style="display:none;">
-    <input type="text" id="reg-nick" placeholder="Ник">
-    <input type="password" id="reg-pass" placeholder="Пароль">
-    <button id="register-btn">Зарегистрироваться</button>
-  </div>
+<div id="menu">
+    <h2>Login</h2>
+    <input type="text" id="nickname" placeholder="Nickname">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+    <p>or <a href="#" onclick="showRegister()">Register</a></p>
 </div>
 
-<div id="game" style="display:none;text-align:center;margin-top:50px;">
-  <h1>Игра запущена!</h1>
+<div id="registerMenu" style="display:none;">
+    <h2>Register</h2>
+    <input type="text" id="regNickname" placeholder="Nickname">
+    <input type="password" id="regPassword" placeholder="Password">
+    <button onclick="register()">Register</button>
+    <p>or <a href="#" onclick="showLogin()">Login</a></p>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+<div id="game">
+    <h1>Welcome to the Game!</h1>
+    <!-- тут твоя игра -->
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bcryptjs/dist/bcrypt.min.js"></script>
 <script>
-const SUPABASE_URL = "https://nkhshvlixjqbeyouapnd.supabase.co";
-const SUPABASE_KEY = "sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Переключение вкладок
-document.getElementById('login-tab').onclick = () => switchTab(true);
-document.getElementById('register-tab').onclick = () => switchTab(false);
-
-function switchTab(isLogin) {
-  document.getElementById('login-tab').classList.toggle('active', isLogin);
-  document.getElementById('register-tab').classList.toggle('active', !isLogin);
-  document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
-  document.getElementById('register-form').style.display = isLogin ? 'none' : 'block';
-}
-
-// Регистрация
-document.getElementById('register-btn').onclick = async () => {
-  const nick = document.getElementById('reg-nick').value.trim();
-  const pass = document.getElementById('reg-pass').value.trim();
-  if (!nick || !pass) return alert("Заполните все поля");
-  
-  const hash = await bcrypt.hash(pass, 10);
-  const { error } = await supabaseClient.from('users').insert([
-    { nickname: nick, password_hash: hash, crystals: 0 }
-  ]);
-  
-  if (error) {
-    console.error(error);
-    alert("Ошибка регистрации: " + error.message);
-  } else {
-    alert("Регистрация успешна!");
-    switchTab(true);
-  }
-};
-
-// Логин
-document.getElementById('login-btn').onclick = async () => {
-  const nick = document.getElementById('login-nick').value.trim();
-  const pass = document.getElementById('login-pass').value.trim();
-  
-  const { data, error } = await supabaseClient
-    .from('users')
-    .select('*')
-    .eq('nickname', nick)
-    .single();
-  
-  if (error || !data) return alert("Пользователь не найден");
-  
-  const match = await bcrypt.compare(pass, data.password_hash);
-  if (!match) return alert("Неверный пароль");
-  
-  document.getElementById('auth').style.display = 'none';
-  document.getElementById('game').style.display = 'block';
-  console.log("Добро пожаловать,", data.nickname);
-};
-
-// Шарики на фоне
+// === Шарики на фоне ===
 const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
 let balls = [];
 
 function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
 window.addEventListener('resize', resize);
 resize();
 
-for (let i = 0; i < 50; i++) {
-  balls.push({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
-    r: Math.random() * 6 + 3,
-    dx: (Math.random() - 0.5) * 1,
-    dy: (Math.random() - 0.5) * 1,
-    alpha: Math.random()
-  });
+for (let i = 0; i < 40; i++) {
+    balls.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 7 + 3,
+        dx: (Math.random() - 0.5) * 1,
+        dy: (Math.random() - 0.5) * 1,
+        alpha: Math.random()
+    });
 }
 
 function animate() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  balls.forEach(b => {
-    ctx.beginPath();
-    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(b.alpha);
-    ctx.fillStyle = "white";
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = "white";
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-    ctx.fill();
-    b.x += b.dx;
-    b.y += b.dy;
-    b.alpha += 0.02;
-    if (b.x < -b.r) b.x = canvas.width + b.r;
-    if (b.x > canvas.width + b.r) b.x = -b.r;
-    if (b.y < -b.r) b.y = canvas.height + b.r;
-    if (b.y > canvas.height + b.r) b.y = -b.r;
-  });
-  requestAnimationFrame(animate);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    balls.forEach(b => {
+        ctx.beginPath();
+        ctx.globalAlpha = 0.7 + 0.3 * Math.sin(b.alpha);
+        ctx.fillStyle = "white";
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "white";
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+        ctx.fill();
+        b.x += b.dx;
+        b.y += b.dy;
+        b.alpha += 0.02;
+        if (b.x < -b.r) b.x = canvas.width + b.r;
+        if (b.x > canvas.width + b.r) b.x = -b.r;
+        if (b.y < -b.r) b.y = canvas.height + b.r;
+        if (b.y > canvas.height + b.r) b.y = -b.r;
+    });
+    requestAnimationFrame(animate);
 }
 animate();
+
+// === Supabase init ===
+const SUPABASE_URL = "https://nkhshvlixjqbeyouapnd.supabase.co";
+const SUPABASE_KEY = "sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha";
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// === UI ===
+function showRegister() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('registerMenu').style.display = 'block';
+}
+function showLogin() {
+    document.getElementById('registerMenu').style.display = 'none';
+    document.getElementById('menu').style.display = 'block';
+}
+
+// === Auth ===
+async function register() {
+    const nickname = document.getElementById('regNickname').value.trim();
+    const password = document.getElementById('regPassword').value;
+    if (!nickname || !password) return alert("Fill in all fields");
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const { data, error } = await supabase
+        .from('users')
+        .insert([{ nickname, password: hashed, crystals: 0 }]);
+
+    if (error) {
+        console.error(error);
+        alert("Registration failed");
+    } else {
+        alert("Registered successfully");
+        showLogin();
+    }
+}
+
+async function login() {
+    const nickname = document.getElementById('nickname').value.trim();
+    const password = document.getElementById('password').value;
+    if (!nickname || !password) return alert("Fill in all fields");
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('nickname', nickname)
+        .single();
+
+    if (error || !data) {
+        return alert("User not found");
+    }
+
+    const match = await bcrypt.compare(password, data.password);
+    if (!match) return alert("Wrong password");
+
+    startGame();
+}
+
+function startGame() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('registerMenu').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+}
 </script>
 
 </body>
