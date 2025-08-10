@@ -86,10 +86,9 @@
       <div id="tab-register" class="tab">Register</div>
     </div>
 
-    <!-- LOGIN: changed to nickname instead of email -->
     <form id="login-form" style="display:flex">
-      <label for="login-nick">Nickname</label>
-      <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
+      <label for="login-email">Email</label>
+      <input id="login-email" type="email" placeholder="email@example.com" autocomplete="username" required />
 
       <label for="login-password">Password</label>
       <input id="login-password" type="password" placeholder="password" autocomplete="current-password" minlength="6" required />
@@ -98,8 +97,10 @@
       <div id="login-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
     </form>
 
-    <!-- REGISTER: removed email field, keep nick + password -->
     <form id="register-form" style="display:none">
+      <label for="reg-email">Email</label>
+      <input id="reg-email" type="email" placeholder="email@example.com" required />
+
       <label for="reg-password">Password (min 6)</label>
       <input id="reg-password" type="password" placeholder="password" minlength="6" required />
 
@@ -130,17 +131,28 @@
 
   <div id="controls" style="display:none">WASD / Arrow keys to move</div>
 
-  <!-- Supabase + bcrypt -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <script>
-  /*************** SUPABASE CONFIG ***************/
-  const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  /*************** FIREBASE CONFIG & INIT ***************/
+  const firebaseConfig = {
+    apiKey: "AIzaSyD6kjiQCEjtI537KqmEN34NxOZ6BBIbC2c",
+    authDomain: "knoxera.firebaseapp.com",
+    projectId: "knoxera",
+    storageBucket: "knoxera.firebasestorage.app",
+    messagingSenderId: "207649077497",
+    appId: "1:207649077497:web:01e865716c790acf798a28",
+    measurementId: "G-913NRJWC1Z"
+  };
 
-  /*************** Helper to show message in menu ***************/
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+
+  // Helper to show message in menu
   function showMenuMessage(text, targetId=null){
     if(targetId){
       const el = document.getElementById(targetId);
@@ -151,11 +163,12 @@
     }
   }
 
-  /*************** MENU UI logic (unchanged) ***************/
+  /*************** MENU UI logic ***************/
   const tabLogin = document.getElementById('tab-login');
   const tabRegister = document.getElementById('tab-register');
   const loginForm = document.getElementById('login-form');
   const registerForm = document.getElementById('register-form');
+  const menu = document.getElementById('menu');
 
   tabLogin.onclick = () => {
     tabLogin.classList.add('active'); tabRegister.classList.remove('active');
@@ -168,25 +181,70 @@
     showMenuMessage('');
   };
 
-  // login fields (note: changed id login-nick)
-  const loginNick = document.getElementById('login-nick');
+  // login fields
+  const loginEmail = document.getElementById('login-email');
   const loginPassword = document.getElementById('login-password');
   const loginBtn = document.getElementById('login-btn');
   const loginMsg = document.getElementById('login-msg');
 
-  // register fields (no email)
+  // register fields
+  const regEmail = document.getElementById('reg-email');
   const regPassword = document.getElementById('reg-password');
   const regNick = document.getElementById('reg-nick');
   const regBtn = document.getElementById('reg-btn');
   const regMsg = document.getElementById('reg-msg');
 
-  function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length >= 2 && loginPassword.value.trim().length >= 6); }
-  function validateRegBtn(){ regBtn.disabled = !(regPassword.value.trim().length >= 6 && regNick.value.trim().length >=2); }
+  function validateLoginBtn(){ loginBtn.disabled = !(loginEmail.checkValidity() && loginPassword.value.trim().length >= 6); }
+  function validateRegBtn(){ regBtn.disabled = !(regEmail.checkValidity() && regPassword.value.trim().length >= 6 && regNick.value.trim().length >=2); }
 
-  [loginNick, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
-  [regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
+  [loginEmail, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
+  [regEmail, regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
 
-  /*************** Particles (menu background) — kept original but made slightly more visible ***************/
+  // Register
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    regMsg.textContent = '';
+    regBtn.disabled = true;
+    try {
+      const email = regEmail.value.trim();
+      const pass = regPassword.value;
+      const nick = regNick.value.trim();
+
+      const cred = await auth.createUserWithEmailAndPassword(email, pass);
+      const u = cred.user;
+      // create user document
+      await db.collection('users').doc(u.uid).set({
+        nickname: nick,
+        crystals: 0,
+        collected: []
+      });
+      // update profile displayName
+      await u.updateProfile({ displayName: nick });
+      showMenuMessage('Registered. Signing in...');
+      // auth.onAuthStateChanged will handle enter
+    } catch(err) {
+      regMsg.textContent = err.message;
+    } finally {
+      regBtn.disabled = false;
+    }
+  });
+
+  // Login
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginMsg.textContent = '';
+    loginBtn.disabled = true;
+    try {
+      await auth.signInWithEmailAndPassword(loginEmail.value.trim(), loginPassword.value);
+      // onAuthStateChanged handles next steps
+    } catch(err) {
+      loginMsg.textContent = err.message;
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  /*************** PARTICLES (menu background) ***************/
   const pCanvas = document.getElementById('particles');
   const pCtx = pCanvas.getContext('2d');
   let pw = window.innerWidth, ph = window.innerHeight;
@@ -198,34 +256,31 @@
     constructor(){
       this.x = Math.random()*pw;
       this.y = Math.random()*ph;
-      this.r = 2 + Math.random()*6; // made larger for visibility
-      this.vx = (Math.random()-0.5)*1.0; // increased speed a bit
-      this.vy = (Math.random()-0.5)*1.0;
-      this.alpha = 0.3 + Math.random()*0.7;
+      this.r = 1 + Math.random()*3;
+      this.vx = (Math.random()-0.5)*0.4;
+      this.vy = -(0.2 + Math.random()*0.6);
+      this.alpha = 0.2 + Math.random()*0.6;
     }
     step(){
       this.x += this.vx;
       this.y += this.vy;
-      if(this.y < -40 || this.x < -60 || this.x > pw+60){ this.x = Math.random()*pw; this.y = ph + Math.random()*40; }
+      if(this.y < -10 || this.x < -20 || this.x > pw+20){ this.x = Math.random()*pw; this.y = ph + Math.random()*40; }
     }
     draw(){
       pCtx.beginPath();
       pCtx.fillStyle = `rgba(255,255,255,${this.alpha})`;
-      pCtx.shadowBlur = 20;
-      pCtx.shadowColor = "white";
       pCtx.arc(this.x, this.y, this.r, 0, Math.PI*2);
       pCtx.fill();
-      pCtx.shadowBlur = 0;
     }
   }
-  const particles = Array.from({length:60}, ()=>new Particle());
+  const particles = Array.from({length:80}, ()=>new Particle());
   (function animParticles(){
     pCtx.clearRect(0,0,pw,ph);
     for(const p of particles){ p.step(); p.draw(); }
     requestAnimationFrame(animParticles);
   })();
 
-  /*************** GAME (kept unchanged aside from replacing Firestore persistence with Supabase) ***************/
+  /*************** GAME (from your provided code) ***************/
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const counterNumber = document.getElementById('crystal-count');
@@ -254,9 +309,10 @@
   let crystalsCollected = 0;
   const keys = { w: false, a: false, s: false, d: false };
 
-  // collected set loaded from DB to keep crystals removed
+  // collected set loaded from Firestore to keep crystals removed
   let collectedSet = new Set();
 
+  // Modified generateChunk: do not place crystal if already collected (key present in collectedSet)
   function generateChunk(cx, cy) {
     let chunk = [];
     for (let y = 0; y < chunkSize; y++) {
@@ -300,6 +356,7 @@
       if (freeCells.length > 0) {
         const chosen = freeCells[Math.floor(Math.random() * freeCells.length)];
         const key = `${cx},${cy}`;
+        // don't create a crystal here if it's already collected by this user
         if (!collectedSet.has(key)) {
           const crystalX = cx * chunkSize * tileSize + chosen.x * tileSize + tileSize / 2;
           const crystalY = cy * chunkSize * tileSize + chosen.y * tileSize + tileSize / 2;
@@ -367,9 +424,11 @@
     player.y = tileSize * chunkSize / 2;
   }
 
+  // draw walls as in your code (strokeRect per tile)
   function drawWalls() {
     ctx.strokeStyle = 'white';
     ctx.lineWidth = 2;
+    // no beginPath/closePath because we use strokeRect
     const camX = player.x - canvas.width / 2;
     const camY = player.y - canvas.height / 2;
 
@@ -405,13 +464,10 @@
     for (const [key, pos] of crystals) {
       const px = pos.x - camX;
       const py = pos.y - camY;
-      const size = tileSize;
+      const size = tileSize; // bigger as requested
       ctx.drawImage(crystalImage, px - size / 2, py - size / 2, size, size);
     }
   }
-
-  // --- Current logged user object from DB ---
-  let currentUser = null; // { id, nickname, crystals, collected (array) }
 
   async function collectCrystal() {
     for (const [key, pos] of crystals) {
@@ -424,24 +480,19 @@
         collectedSet.add(key);
         crystalsCollected++;
         counterNumber.textContent = crystalsCollected;
-
-        // persist to Supabase: update crystals and collected array (if available)
+        // persist to Firestore: add key to collected array and increment crystals
         try {
-          if (currentUser && currentUser.id) {
-            // maintain local collected array
-            if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
-            if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
-
-            const { error } = await supabase
-              .from('users')
-              .update({ crystals: crystalsCollected, collected: currentUser.collected })
-              .eq('id', currentUser.id);
-            if (error) console.error('Failed to persist collect:', error);
+          const u = auth.currentUser;
+          if (u) {
+            const userRef = db.collection('users').doc(u.uid);
+            await userRef.update({
+              collected: firebase.firestore.FieldValue.arrayUnion(key),
+              crystals: firebase.firestore.FieldValue.increment(1)
+            });
           }
         } catch (err) {
-          console.error('Failed to persist collect (exception):', err);
+          console.error('Failed to persist collect:', err);
         }
-
         break; // only one per frame
       }
     }
@@ -495,190 +546,79 @@
     if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
   });
 
-  /*************** AUTH: registration & login using Supabase + bcrypt ***************/
-
-  // Register
-  registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    regMsg.textContent = '';
-    regBtn.disabled = true;
-    try {
-      const pass = regPassword.value;
-      const nick = regNick.value.trim();
-
-      // basic validation already handled by inputs
-      showMenuMessage('Registering...');
-
-      // Hash password in browser
-      const hash = await new Promise((res, rej) => {
-        bcrypt.genSalt(10, (err, salt) => {
-          if (err) return rej(err);
-          bcrypt.hash(pass, salt, (err2, hashed) => err2 ? rej(err2) : res(hashed));
-        });
-      });
-
-      // Insert user row in Supabase
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
-        .select()
-        .maybeSingle();
-
-      if (error) {
-        regMsg.textContent = error.message || 'Registration failed';
-        showMenuMessage('');
-        return;
-      }
-
-      // Successful registration — auto-login (load user)
-      currentUser = data;
-      await afterSuccessfulAuth();
-      showMenuMessage('Registered and signed in.');
-    } catch (err) {
-      console.error(err);
-      regMsg.textContent = (err && err.message) ? err.message : 'Registration failed';
-      showMenuMessage('');
-    } finally {
-      regBtn.disabled = false;
+  /*************** AUTH state handling & Firestore load ***************/
+  async function ensureUserDoc(uid, displayName) {
+    const ref = db.collection('users').doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({ nickname: displayName || 'Player', crystals: 0, collected: [] });
+      return { nickname: displayName || 'Player', crystals: 0, collected: [] };
     }
-  });
-
-  // Login
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginMsg.textContent = '';
-    loginBtn.disabled = true;
-    try {
-      const nick = loginNick.value.trim();
-      const pass = loginPassword.value;
-
-      showMenuMessage('Checking credentials...');
-
-      // fetch user by nickname
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('nickname', nick)
-        .maybeSingle();
-
-      if (error || !data) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        showMenuMessage('');
-        loginBtn.disabled = false;
-        return;
-      }
-
-      // verify bcrypt
-      const ok = await new Promise((res, rej) => {
-        bcrypt.compare(pass, data.password_hash, (err, same) => err ? rej(err) : res(same));
-      });
-
-      if (!ok) {
-        loginMsg.textContent = 'Invalid nickname or password';
-        showMenuMessage('');
-        loginBtn.disabled = false;
-        return;
-      }
-
-      // success: set currentUser and proceed
-      currentUser = data;
-      await afterSuccessfulAuth();
-      showMenuMessage('');
-    } catch (err) {
-      console.error(err);
-      loginMsg.textContent = (err && err.message) ? err.message : 'Login failed';
-      showMenuMessage('');
-    } finally {
-      loginBtn.disabled = false;
-    }
-  });
-
-  // after login/register: load user data into local state and start game
-  async function afterSuccessfulAuth(){
-    try {
-      // set collectedSet and crystalsCollected from DB row
-      collectedSet = new Set(Array.isArray(currentUser.collected) ? currentUser.collected : []);
-      crystalsCollected = currentUser.crystals || 0;
-      counterNumber.textContent = crystalsCollected;
-
-      // Reset world
-      chunks.clear();
-      crystals.clear();
-
-      // spawn player
-      spawnPlayer();
-
-      // show UI
-      document.getElementById('menu').style.display = 'none';
-      document.getElementById('header').style.display = 'flex';
-      document.getElementById('game').style.display = 'block';
-      document.getElementById('counter').style.display = 'flex';
-      document.getElementById('controls').style.display = 'block';
-
-      // show nickname in header (optionally)
-      // create small nickname label
-      const existing = document.getElementById('headerNickSmall');
-      if(!existing){
-        const span = document.createElement('div');
-        span.id = 'headerNickSmall';
-        span.style.fontSize = '12px';
-        span.style.color = '#bbb';
-        span.textContent = currentUser.nickname || '';
-        document.getElementById('header').appendChild(span);
-      } else {
-        existing.textContent = currentUser.nickname || '';
-      }
-
-      // start game loop
-      if (!gameRunning) {
-        gameRunning = true;
-        resizeCanvas();
-        gameLoop();
-      }
-    } catch (err) {
-      console.error('afterSuccessfulAuth failed', err);
-      showMenuMessage('Load user data failed: ' + (err.message || err));
-    }
+    return snap.data();
   }
 
-  // Logout (double click header)
-  document.getElementById('header').addEventListener('dblclick', async () => {
-    try {
-      // optionally save progress before logout
-      if (currentUser && currentUser.id) {
-        try {
-          await supabase.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
-        } catch(e) { console.warn('save before logout failed', e); }
-      }
-    } catch(e){}
-    // clear local state
-    currentUser = null;
-    collectedSet = new Set();
-    crystalsCollected = 0;
-    counterNumber.textContent = crystalsCollected;
-    // hide game UI, show menu
-    document.getElementById('menu').style.display = 'flex';
-    document.getElementById('header').style.display = 'none';
-    document.getElementById('game').style.display = 'none';
-    document.getElementById('counter').style.display = 'none';
-    document.getElementById('controls').style.display = 'none';
-    gameRunning = false;
-  });
-
-  // save progress on unload
-  window.addEventListener('beforeunload', async (e) => {
-    if (currentUser && currentUser.id) {
+  // Wait for auth state; only after that we load Firestore data
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      // hide menu, show header/game
       try {
-        await supabase.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
-      } catch(e){ /* ignore */ }
+        const data = await ensureUserDoc(user.uid, user.displayName || 'Player');
+        // load collected keys and crystals count
+        collectedSet = new Set(Array.isArray(data.collected) ? data.collected : []);
+        crystalsCollected = data.crystals || 0;
+        counterNumber.textContent = crystalsCollected;
+
+        // Reset world to clear any old generated data
+        chunks.clear();
+        crystals.clear();
+
+        // spawn player in initial free cell
+        spawnPlayer();
+
+        // show UI
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('header').style.display = 'flex';
+        document.getElementById('game').style.display = 'block';
+        document.getElementById('counter').style.display = 'flex';
+        document.getElementById('controls').style.display = 'block';
+
+        // start game loop if not already
+        if (!gameRunning) {
+          gameRunning = true;
+          resizeCanvas();
+          gameLoop();
+        }
+      } catch (err) {
+        // If Firestore read fails (offline or permission), show message but keep menu visible
+        console.error('Load user data failed:', err);
+        showMenuMessage('Load user data failed: ' + (err.message || err));
+        // Sign out to avoid inconsistent UI
+        await auth.signOut();
+      }
+    } else {
+      // show menu
+      document.getElementById('menu').style.display = 'flex';
+      document.getElementById('header').style.display = 'none';
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('counter').style.display = 'none';
+      document.getElementById('controls').style.display = 'none';
+      // stop game
+      gameRunning = false;
     }
   });
+
+  // Logout via header click on header (add logout by clicking title) — simple touch: double-click header to logout
+  document.getElementById('header').addEventListener('dblclick', async () => {
+    try { await auth.signOut(); } catch(err){ console.error(err); }
+  });
+
+  // Small UX: if user closes tab and reopens, onAuthStateChanged will re-run and load data (avoids offline error)
+  // Important: make sure in Firebase Console Authentication Email/Password is enabled and Firestore rules allow reads/writes by authenticated users.
 
   // Ensure crystal image loaded before starting draw loop visually (not necessary for logic)
   crystalImage.onload = () => {
-    // no-op; loop starts when user logs in
+    // no-op; loop starts when auth state triggers
   };
-
   </script>
 </body>
 </html>
