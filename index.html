@@ -2,14 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Test Auth</title>
+<title>Minimal Auth</title>
 <style>
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: Arial, sans-serif;
-    background: #0d0d0d;
+    font-family: 'Segoe UI', sans-serif;
+    background: #000;
     color: white;
     overflow: hidden;
   }
@@ -23,42 +23,61 @@
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    background: rgba(20, 20, 20, 0.9);
-    padding: 20px;
-    border-radius: 10px;
+    background: rgba(0,0,0,0.7);
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid white;
     width: 300px;
     text-align: center;
+    backdrop-filter: blur(6px);
   }
   .tabs {
     display: flex;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid white;
   }
   .tab {
     flex: 1;
-    padding: 8px;
-    background: #222;
+    padding: 10px;
+    background: transparent;
     cursor: pointer;
     border: none;
     color: white;
+    font-size: 14px;
+    transition: background 0.3s;
   }
   .tab.active {
-    background: #555;
+    background: white;
+    color: black;
+    font-weight: bold;
   }
   input {
     width: 90%;
-    padding: 8px;
-    margin: 5px 0;
-    border: none;
-    border-radius: 5px;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid white;
+    border-radius: 4px;
+    background: transparent;
+    color: white;
+    outline: none;
+    font-size: 14px;
   }
   button {
     width: 95%;
     padding: 10px;
-    background: #4cafef;
+    background: white;
     border: none;
-    border-radius: 5px;
-    color: white;
+    border-radius: 4px;
+    color: black;
+    font-weight: bold;
     cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.3s, color 0.3s;
+  }
+  button:hover {
+    background: black;
+    color: white;
+    border: 1px solid white;
   }
 </style>
 </head>
@@ -97,23 +116,15 @@ const SUPABASE_KEY = "sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Переключение вкладок
-const loginTab = document.getElementById('login-tab');
-const registerTab = document.getElementById('register-tab');
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
+document.getElementById('login-tab').onclick = () => switchTab(true);
+document.getElementById('register-tab').onclick = () => switchTab(false);
 
-loginTab.onclick = () => {
-  loginTab.classList.add('active');
-  registerTab.classList.remove('active');
-  loginForm.style.display = 'block';
-  registerForm.style.display = 'none';
-};
-registerTab.onclick = () => {
-  registerTab.classList.add('active');
-  loginTab.classList.remove('active');
-  registerForm.style.display = 'block';
-  loginForm.style.display = 'none';
-};
+function switchTab(isLogin) {
+  document.getElementById('login-tab').classList.toggle('active', isLogin);
+  document.getElementById('register-tab').classList.toggle('active', !isLogin);
+  document.getElementById('login-form').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('register-form').style.display = isLogin ? 'none' : 'block';
+}
 
 // Регистрация
 document.getElementById('register-btn').onclick = async () => {
@@ -122,7 +133,6 @@ document.getElementById('register-btn').onclick = async () => {
   if (!nick || !pass) return alert("Заполните все поля");
   
   const hash = await bcrypt.hash(pass, 10);
-  
   const { error } = await supabaseClient.from('users').insert([
     { nickname: nick, password_hash: hash, crystals: 0 }
   ]);
@@ -132,7 +142,7 @@ document.getElementById('register-btn').onclick = async () => {
     alert("Ошибка регистрации: " + error.message);
   } else {
     alert("Регистрация успешна!");
-    loginTab.click();
+    switchTab(true);
   }
 };
 
@@ -147,23 +157,17 @@ document.getElementById('login-btn').onclick = async () => {
     .eq('nickname', nick)
     .single();
   
-  if (error || !data) {
-    alert("Пользователь не найден");
-    return;
-  }
+  if (error || !data) return alert("Пользователь не найден");
   
   const match = await bcrypt.compare(pass, data.password_hash);
-  if (!match) {
-    alert("Неверный пароль");
-    return;
-  }
+  if (!match) return alert("Неверный пароль");
   
   document.getElementById('auth').style.display = 'none';
   document.getElementById('game').style.display = 'block';
   console.log("Добро пожаловать,", data.nickname);
 };
 
-// Анимация шариков
+// Анимация белых шариков
 const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
 let balls = [];
@@ -175,25 +179,28 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-for (let i = 0; i < 50; i++) {
+for (let i = 0; i < 40; i++) {
   balls.push({
     x: Math.random() * canvas.width,
     y: Math.random() * canvas.height,
-    r: Math.random() * 3 + 2,
+    r: Math.random() * 4 + 2,
     dx: (Math.random() - 0.5) * 0.5,
-    dy: (Math.random() - 0.5) * 0.5
+    dy: (Math.random() - 0.5) * 0.5,
+    alpha: Math.random()
   });
 }
 
 function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "white";
   balls.forEach(b => {
     ctx.beginPath();
+    ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(b.alpha));
+    ctx.fillStyle = "white";
     ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
     ctx.fill();
     b.x += b.dx;
     b.y += b.dy;
+    b.alpha += 0.02;
     if (b.x < 0 || b.x > canvas.width) b.dx *= -1;
     if (b.y < 0 || b.y > canvas.height) b.dy *= -1;
   });
