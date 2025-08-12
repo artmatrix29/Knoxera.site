@@ -24,7 +24,8 @@
       z-index:30;
       pointer-events:auto;
     }
-    #particles { position:fixed; inset:0; z-index:10; pointer-events:none; background:transparent; }
+    /* particles behind menu */
+    #particles { position:fixed; inset:0; z-index:5; pointer-events:none; background:transparent; }
 
     .tabs { display:flex; gap:12px; margin-bottom:18px; z-index:32; }
     .tab { color:#fff; padding:8px 16px; cursor:pointer; border-bottom:2px solid transparent; user-select:none; }
@@ -68,7 +69,7 @@
     }
     #counter img { width:28px; height:28px; }
 
-    #notice { color:#f66; margin-top:8px; font-size:13px; text-align:center; }
+    #notice { color:#f66; margin-top:8px; font-size:13px; text-align:center; min-height:18px; }
 
     /* small helper */
     #controls { position:fixed; left:12px; bottom:12px; color:#aaa; font-size:13px; z-index:15; }
@@ -86,6 +87,7 @@
       <div id="tab-register" class="tab">Register</div>
     </div>
 
+    <!-- LOGIN: nickname + password -->
     <form id="login-form" style="display:flex">
       <label for="login-nick">Nickname</label>
       <input id="login-nick" type="text" placeholder="Your nickname" autocomplete="username" required />
@@ -97,6 +99,7 @@
       <div id="login-msg" style="color:#f66; height:18px; margin-top:6px;"></div>
     </form>
 
+    <!-- REGISTER: nickname + password -->
     <form id="register-form" style="display:none">
       <label for="reg-password">Password (min 6)</label>
       <input id="reg-password" type="password" placeholder="password" minlength="6" required />
@@ -114,7 +117,10 @@
   <!-- Header (shown after login) -->
   <div id="header" style="display:none">
     <img src="knoxeralogo.png" alt="logo" />
-    <h1>Knoxera</h1>
+    <div>
+      <h1>Knoxera</h1>
+      <div id="headerNickSmall" style="color:#bbb;font-size:12px;margin-top:4px"></div>
+    </div>
   </div>
 
   <!-- Game canvas -->
@@ -132,51 +138,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <script>
-  window.addEventListener('load', () => {
-    // --- Supabase init ---
-    if (typeof supabase === 'undefined') {
-      document.getElementById('notice').textContent = 'Ошибка: supabase SDK не загружен.';
-      console.error('Supabase SDK not loaded');
-      return;
-    }
+  (function(){
+    // CONFIG — подставь свои значения если нужно
     const SUPABASE_URL = 'https://nkhshvlixjqbeyouapnd.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_H9wczHVQq_YvP4v6xtAT_w_0-XDNwha';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // --- utils for base64 <-> Uint8Array ---
-    function u8ToBase64(u8) {
-      let s = '';
-      for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
-      return btoa(s);
-    }
-    function base64ToU8(b64) {
-      if (!b64) return new Uint8Array();
-      const s = atob(b64);
-      const u8 = new Uint8Array(s.length);
-      for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i);
-      return u8;
-    }
-
-    // --- PBKDF2 hashing (Web Crypto) ---
-    async function pbkdf2Hash(password, saltBase64 = null) {
-      const enc = new TextEncoder();
-      const salt = saltBase64 ? base64ToU8(saltBase64) : crypto.getRandomValues(new Uint8Array(16));
-      const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name:'PBKDF2'}, false, ['deriveBits']);
-      // iterations 100000, output 256 bits
-      const derivedBits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 256);
-      const hashU8 = new Uint8Array(derivedBits);
-      return { hash: u8ToBase64(hashU8), salt: u8ToBase64(salt) };
-    }
-    async function pbkdf2Verify(password, storedHashBase64, saltBase64) {
-      const { hash } = await pbkdf2Hash(password, saltBase64);
-      const a = base64ToU8(hash), b = base64ToU8(storedHashBase64);
-      if (a.length !== b.length) return false;
-      let diff = 0;
-      for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-      return diff === 0;
-    }
-
-    // --- UI refs ---
+    // UI refs
     const tabLogin = document.getElementById('tab-login');
     const tabRegister = document.getElementById('tab-register');
     const loginForm = document.getElementById('login-form');
@@ -193,14 +161,7 @@
     const regBtn = document.getElementById('reg-btn');
     const regMsg = document.getElementById('reg-msg');
 
-    function showMenuMessage(text, targetId = null) {
-      if (targetId) {
-        const el = document.getElementById(targetId);
-        if (el) el.textContent = text;
-      } else {
-        notice.textContent = text || '';
-      }
-    }
+    function showMenuMessage(text){ notice.textContent = text || ''; }
 
     tabLogin.addEventListener('click', () => {
       tabLogin.classList.add('active'); tabRegister.classList.remove('active');
@@ -214,12 +175,12 @@
     });
 
     function validateLoginBtn(){ loginBtn.disabled = !(loginNick.value.trim().length >= 2 && loginPassword.value.trim().length >= 6); }
-    function validateRegBtn(){ regBtn.disabled = !(regNick.value.trim().length >=2 && regPassword.value.trim().length >= 6); }
-    [loginNick, loginPassword].forEach(el => el.addEventListener('input', validateLoginBtn));
-    [regNick, regPassword].forEach(el => el.addEventListener('input', validateRegBtn));
+    function validateRegBtn(){ regBtn.disabled = !(regPassword.value.trim().length >= 6 && regNick.value.trim().length >=2); }
+    [loginNick, loginPassword].forEach(i=>i.addEventListener('input', validateLoginBtn));
+    [regPassword, regNick].forEach(i=>i.addEventListener('input', validateRegBtn));
     validateLoginBtn(); validateRegBtn();
 
-    // --- particles background ---
+    // ---------------- Particles ----------------
     const pCanvas = document.getElementById('particles');
     const pCtx = pCanvas.getContext('2d');
     let pw = innerWidth, ph = innerHeight;
@@ -229,17 +190,15 @@
 
     class Particle {
       constructor(){
-        this.x = Math.random()*pw;
-        this.y = Math.random()*ph;
+        this.x = Math.random()*pw; this.y = Math.random()*ph;
         this.r = 1 + Math.random()*5;
         this.vx = (Math.random()-0.5)*0.8;
         this.vy = (Math.random()-0.5)*0.8;
-        this.alpha = 0.3 + Math.random()*0.6;
+        this.alpha = 0.25 + Math.random()*0.6;
         this.phase = Math.random()*Math.PI*2;
       }
       step(){
-        this.x += this.vx;
-        this.y += this.vy;
+        this.x += this.vx; this.y += this.vy;
         this.phase += 0.03;
         if(this.x < -60) this.x = pw + 60;
         if(this.x > pw + 60) this.x = -60;
@@ -259,21 +218,14 @@
         pCtx.globalAlpha = 1;
       }
     }
-
     const particles = Array.from({length:80}, () => new Particle());
     (function animParticles(){
       pCtx.clearRect(0,0,pw,ph);
-      const grad = pCtx.createLinearGradient(0,0,0,ph);
-      grad.addColorStop(0, 'rgba(255,255,255,0.01)');
-      grad.addColorStop(1, 'rgba(255,255,255,0.00)');
-      pCtx.fillStyle = grad;
-      pCtx.fillRect(0,0,pw,ph);
-
       for(const p of particles){ p.step(); p.draw(); }
       requestAnimationFrame(animParticles);
     })();
 
-    // --- Game code (unchanged) ---
+    // ---------------- Game ----------------
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const counterNumber = document.getElementById('crystal-count');
@@ -310,7 +262,6 @@
       if (Math.random()<0.6){ const y = Math.floor(Math.random()*(chunkSize-2))+1; chunk[y][chunkSize-1]=0; }
       if (Math.random()<0.6){ const x = Math.floor(Math.random()*(chunkSize-2))+1; chunk[0][x]=0; }
       if (Math.random()<0.6){ const x = Math.floor(Math.random()*(chunkSize-2))+1; chunk[chunkSize-1][x]=0; }
-
       if (Math.random()<0.15){
         let free=[];
         for(let y=1;y<chunkSize-1;y++) for(let x=1;x<chunkSize-1;x++) if(chunk[y][x]===0) free.push({x,y});
@@ -418,14 +369,13 @@
           collectedSet.add(key);
           crystalsCollected++;
           counterNumber.textContent = crystalsCollected;
-          // persist to supabase if logged in
           try {
             if (currentUser && currentUser.id) {
               if (!Array.isArray(currentUser.collected)) currentUser.collected = [];
               if (!currentUser.collected.includes(key)) currentUser.collected.push(key);
               await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: currentUser.collected }).eq('id', currentUser.id);
             }
-          } catch(err) { console.error('Persist collect failed', err); }
+          } catch(err){ console.error('Persist collect failed', err); }
           break;
         }
       }
@@ -471,34 +421,44 @@
       if (k && k in keys) keys[k] = false;
     });
 
-    // --- Auth flows using PBKDF2/WebCrypto (no bcrypt) ---
+    // ---------------- Simple client-side hashing (SHA-256) ----------------
+    async function sha256Base64(str) {
+      const enc = new TextEncoder();
+      const data = enc.encode(str);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      const u8 = new Uint8Array(hash);
+      let s = '';
+      for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+      return btoa(s);
+    }
 
+    // Register (simple)
     registerForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      regMsg.textContent = ''; regBtn.disabled = true;
+      regMsg.textContent = '';
+      regBtn.disabled = true;
       try {
         const nick = regNick.value.trim();
         const pass = regPassword.value;
-        if (!nick || !pass) { regMsg.textContent = 'Заполните поля'; regBtn.disabled=false; return; }
+        if (!nick || !pass) { regMsg.textContent = 'Заполните поля'; regBtn.disabled = false; return; }
 
         showMenuMessage('Регистрация...');
 
-        // check existence
-        const { data: existing, error: errExist } = await supabaseClient.from('users').select('id').eq('nickname', nick).maybeSingle();
-        if (errExist) throw errExist;
-        if (existing) { regMsg.textContent = 'Никнейм занят'; showMenuMessage(''); regBtn.disabled=false; return; }
+        // check existing nick
+        const { data: exist, error: existErr } = await supabaseClient.from('users').select('id').eq('nickname', nick).maybeSingle();
+        if (existErr) throw existErr;
+        if (exist) { regMsg.textContent = 'Никнейм занят'; showMenuMessage(''); regBtn.disabled=false; return; }
 
-        // hash with pbkdf2
-        const { hash, salt } = await pbkdf2Hash(pass);
+        // simple hash: nickname:password (client-side). Not salted on server to avoid missing column issues.
+        const hash = await sha256Base64(nick + ':' + pass);
 
-        // insert
         const { data, error } = await supabaseClient
           .from('users')
-          .insert([{ nickname: nick, password_hash: hash, password_salt: salt, crystals: 0, collected: [] }])
+          .insert([{ nickname: nick, password_hash: hash, crystals: 0, collected: [] }])
           .select()
           .maybeSingle();
 
-        if (error || !data) { regMsg.textContent = (error && error.message) ? error.message : 'Ошибка регистрации'; showMenuMessage(''); regBtn.disabled=false; return; }
+        if (error) { regMsg.textContent = error.message || 'Ошибка регистрации'; showMenuMessage(''); regBtn.disabled=false; return; }
 
         currentUser = data;
         await afterAuthLoad();
@@ -509,9 +469,11 @@
       } finally { regBtn.disabled = false; }
     });
 
+    // Login
     loginForm.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      loginMsg.textContent = ''; loginBtn.disabled = true;
+      loginMsg.textContent = '';
+      loginBtn.disabled = true;
       try {
         const nick = loginNick.value.trim();
         const pass = loginPassword.value;
@@ -523,14 +485,13 @@
         if (error) throw error;
         if (!data) { loginMsg.textContent = 'Неверный ник или пароль'; showMenuMessage(''); loginBtn.disabled=false; return; }
 
-        if (!data.password_salt) {
-          loginMsg.textContent = 'Нужна миграция пароля (старый формат). Перерегистрируйтесь.';
-          loginBtn.disabled = false;
+        const hash = await sha256Base64(nick + ':' + pass);
+        if (hash !== data.password_hash) {
+          loginMsg.textContent = 'Неверный ник или пароль';
           showMenuMessage('');
+          loginBtn.disabled = false;
           return;
         }
-        const ok = await pbkdf2Verify(pass, data.password_hash, data.password_salt);
-        if (!ok) { loginMsg.textContent = 'Неверный ник или пароль'; showMenuMessage(''); loginBtn.disabled=false; return; }
 
         currentUser = data;
         await afterAuthLoad();
@@ -546,28 +507,14 @@
         collectedSet = new Set(Array.isArray(currentUser.collected) ? currentUser.collected : []);
         crystalsCollected = currentUser.crystals || 0;
         counterNumber.textContent = crystalsCollected;
-
-        chunks.clear();
-        crystals.clear();
-
-        spawnPlayer();
+        chunks.clear(); crystals.clear(); spawnPlayer();
 
         document.getElementById('menu').style.display = 'none';
         document.getElementById('header').style.display = 'flex';
         document.getElementById('game').style.display = 'block';
         document.getElementById('counter').style.display = 'flex';
         document.getElementById('controls').style.display = 'block';
-        // show nick
-        let existing = document.getElementById('headerNickSmall');
-        if (!existing) {
-          const span = document.createElement('div');
-          span.id = 'headerNickSmall';
-          span.style.fontSize = '12px';
-          span.style.color = '#bbb';
-          span.style.marginLeft = '8px';
-          span.textContent = currentUser.nickname || '';
-          document.getElementById('header').appendChild(span);
-        } else existing.textContent = currentUser.nickname || '';
+        document.getElementById('headerNickSmall').textContent = currentUser.nickname || '';
 
         if (!gameRunning) { gameRunning = true; resizeCanvas(); gameLoop(); }
       } catch(err) {
@@ -576,17 +523,14 @@
       }
     }
 
-    // logout/save on double click header
+    // logout/save on header double-click
     document.getElementById('header').addEventListener('dblclick', async () => {
       try {
         if (currentUser && currentUser.id) {
           await supabaseClient.from('users').update({ crystals: crystalsCollected, collected: Array.from(collectedSet) }).eq('id', currentUser.id);
         }
-      } catch(e) { console.warn('save on logout failed', e); }
-      currentUser = null;
-      collectedSet = new Set();
-      crystalsCollected = 0;
-      counterNumber.textContent = crystalsCollected;
+      } catch(e){ console.warn('save failed', e); }
+      currentUser = null; collectedSet = new Set(); crystalsCollected = 0; counterNumber.textContent = crystalsCollected;
       document.getElementById('menu').style.display = 'flex';
       document.getElementById('header').style.display = 'none';
       document.getElementById('game').style.display = 'none';
@@ -604,8 +548,9 @@
       }
     });
 
+    // done
     showMenuMessage('');
-  }); // load
+  })();
   </script>
 </body>
 </html>
